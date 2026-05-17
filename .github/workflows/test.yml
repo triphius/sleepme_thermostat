@@ -20,10 +20,10 @@ jobs:
           python-version: "3.14"
           cache: pip
       - run: pip install ruff==0.8.4 black==24.10.0
-      - name: ruff check (tests only in Phase 0)
-        run: ruff check tests
-      - name: black --check (tests only in Phase 0)
-        run: black --check tests
+      - name: ruff check
+        run: ruff check .
+      - name: black --check
+        run: black --check custom_components tests
 
   typecheck:
     name: mypy
@@ -39,6 +39,17 @@ jobs:
       - name: mypy (advisory in Phase 0)
         # `|| true` keeps the job green while we adopt mypy. Drop the suffix in Phase 4.
         run: mypy custom_components/sleepme_thermostat || true
+
+  i18n-check:
+    name: strings.json mirrors translations/en.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify strings.json is identical to translations/en.json
+        run: |
+          diff -q \
+            custom_components/sleepme_thermostat/strings.json \
+            custom_components/sleepme_thermostat/translations/en.json
 
   pytest:
     name: pytest (HA ${{ matrix.ha-version }})

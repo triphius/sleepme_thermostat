@@ -57,6 +57,8 @@ This project is licensed under the [MIT License](LICENSE).
 
 Contributions are welcome! Please open an issue or submit a pull request.
 
+When editing translations, edit `custom_components/sleepme_thermostat/strings.json` first (the source of truth), then copy verbatim to `custom_components/sleepme_thermostat/translations/en.json`. CI fails if the two files diverge. Other language files (e.g. `es.json`) are hand-maintained from `strings.json`.
+
 ## Support
 
 If you encounter any issues or have questions, feel free to open an issue in the [GitHub repository](https://github.com/rsampayo/sleepme_thermostat).

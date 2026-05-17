@@ -270,3 +270,78 @@ async def test_round_half_up_applied_to_user_temp(
 
     call = mock_sleepme_client.set_temp_level.call_args
     assert call.args[0] == 24.5
+
+
+async def test_current_temperature_passthrough(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """current_temperature reads from coordinator.data['status']."""
+    await _setup(hass)
+    state = hass.states.get(ENTITY_ID)
+    assert state.attributes["current_temperature"] == 22.0
+
+
+async def test_available_false_when_coordinator_unsuccessful(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """available returns False when coordinator.last_update_success is False."""
+    entry = await _setup(hass)
+    coord = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coord.last_update_success = False
+    coord.async_update_listeners()
+    await hass.async_block_till_done()
+    state = hass.states.get(ENTITY_ID)
+    assert state.state == "unavailable"
+
+
+async def test_available_false_when_disconnected(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """available returns False when coordinator reports is_connected=False."""
+    entry = await _setup(hass)
+    coord = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coord.data["status"]["is_connected"] = False
+    coord.async_update_listeners()
+    await hass.async_block_till_done()
+    state = hass.states.get(ENTITY_ID)
+    assert state.state == "unavailable"
+
+
+async def test_optimistic_window_expires(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """After OPTIMISTIC_WINDOW (30s) the coordinator's value wins again.
+
+    Asserts the internal _optimistic_target_temp clears after the window
+    expires and the next property read returns the coordinator value.
+    """
+    from datetime import timedelta
+    from unittest.mock import patch as _patch
+
+    from homeassistant.util import dt as dt_util
+
+    await _setup(hass)
+    await hass.services.async_call(
+        CLIMATE_DOMAIN,
+        SERVICE_SET_TEMPERATURE,
+        {ATTR_ENTITY_ID: ENTITY_ID, ATTR_TEMPERATURE: 25.0},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    state = hass.states.get(ENTITY_ID)
+    assert state.attributes["temperature"] == 25.0  # optimistic wins now
+
+    # Fast-forward past the window and force a re-render.
+    future = dt_util.utcnow() + timedelta(seconds=61)
+    with _patch(
+        "custom_components.sleepme_thermostat.climate.dt_util.utcnow",
+        return_value=future,
+    ):
+        # Hitting the coordinator's listeners triggers a state re-write.
+        coord = hass.data[DOMAIN][_entry().entry_id]["coordinator"]
+        coord.async_update_listeners()
+        await hass.async_block_till_done()
+
+    state = hass.states.get(ENTITY_ID)
+    # Coordinator's mock still reports 22.0; optimistic is gone.
+    assert state.attributes["temperature"] == 22.0

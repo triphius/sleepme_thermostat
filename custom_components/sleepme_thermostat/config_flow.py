@@ -7,9 +7,8 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigEntry, OptionsFlow
+from homeassistant.config_entries import ConfigEntry, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .const import (
@@ -38,6 +37,7 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self.api_token: str = ""
         self.claimed_devices: list = []
+        self._claimed_devices_dict: dict[str, str] = {}
         self._reauth_entry: ConfigEntry | None = None
 
     @staticmethod
@@ -54,7 +54,9 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
-    async def async_step_user(self, user_input=None) -> FlowResult:
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -63,7 +65,7 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "User submitted api token (length=%d)",
                 len(user_input.get("api_token", "")),
             )
-            self.api_token = user_input.get("api_token")
+            self.api_token = user_input.get("api_token", "")
 
             client = SleepMeClient(self.hass, API_URL, self.api_token)
 
@@ -87,13 +89,15 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_select_device(self, user_input=None) -> FlowResult:
+    async def async_step_select_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Step 2: select a device from the list of claimed devices."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             device_id = user_input["device_id"]
-            name = self.context["claimed_devices_dict"][device_id]
+            name = self._claimed_devices_dict[device_id]
 
             await self.async_set_unique_id(device_id)
             self._abort_if_unique_id_configured()
@@ -130,7 +134,7 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_fetch_device_info"
 
         if self.claimed_devices:
-            self.context["claimed_devices_dict"] = {
+            self._claimed_devices_dict = {
                 device["id"]: device["name"] for device in self.claimed_devices
             }
         else:
@@ -139,23 +143,21 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="select_device",
             data_schema=vol.Schema(
-                {
-                    vol.Required("device_id"): vol.In(
-                        self.context["claimed_devices_dict"]
-                    )
-                }
+                {vol.Required("device_id"): vol.In(self._claimed_devices_dict)}
             ),
             errors=errors,
         )
 
-    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Reauth triggered by coordinator raising ConfigEntryAuthFailed."""
         self._reauth_entry = self.hass.config_entries.async_get_entry(
             self.context["entry_id"]
         )
         return await self.async_step_reauth_confirm()
 
-    async def async_step_reauth_confirm(self, user_input=None) -> FlowResult:
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Prompt for a new API token and validate it against the API."""
         errors: dict[str, str] = {}
         assert self._reauth_entry is not None
@@ -198,7 +200,7 @@ class SleepMeOptionsFlowHandler(OptionsFlow):
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Show + handle the options form."""
         errors: dict[str, str] = {}
 

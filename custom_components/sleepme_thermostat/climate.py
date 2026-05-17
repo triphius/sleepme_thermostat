@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
@@ -27,8 +27,12 @@ from homeassistant.components.climate.const import (
     ClimateEntityFeature,
     HVACMode,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
@@ -46,6 +50,12 @@ from .sleepme_api import (
     SleepMeAuthError,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
+    from .sleepme import SleepMeClient
+    from .update_manager import SleepMeUpdateManager
+
 _LOGGER = logging.getLogger(__name__)
 
 # How long to trust our optimistic local state before falling back to whatever
@@ -54,10 +64,14 @@ _LOGGER = logging.getLogger(__name__)
 OPTIMISTIC_WINDOW = timedelta(seconds=30)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     """Set up SleepMe Thermostat climate entity from a config entry."""
-    device_id = entry.data.get("device_id")
-    name = entry.data.get("name")
+    device_id: str = entry.data["device_id"]
+    name: str = entry.data["name"]
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator = entry_data["coordinator"]
     device_info = build_device_info(device_id, name, entry_data["device_info"])
@@ -82,16 +96,18 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
         | ClimateEntityFeature.TURN_OFF
         | ClimateEntityFeature.PRESET_MODE
     )
-    _attr_hvac_modes: ClassVar[list[HVACMode]] = [HVACMode.OFF, HVACMode.AUTO]
-    _attr_preset_modes: ClassVar[list[str]] = [
-        PRESET_NONE,
-        PRESET_MAX_HEAT,
-        PRESET_MAX_COOL,
-    ]
+    _attr_hvac_modes = [HVACMode.OFF, HVACMode.AUTO]
+    _attr_preset_modes = [PRESET_NONE, PRESET_MAX_HEAT, PRESET_MAX_COOL]
     _attr_min_temp = MIN_TEMP_C
     _attr_max_temp = MAX_TEMP_C
 
-    def __init__(self, coordinator, client, device_id, device_info):
+    def __init__(
+        self,
+        coordinator: SleepMeUpdateManager,
+        client: SleepMeClient,
+        device_id: str,
+        device_info: DeviceInfo,
+    ) -> None:
         super().__init__(coordinator)
         self._client = client
         self._device_id = device_id
@@ -241,7 +257,7 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
 
     # ---------- internals -------------------------------------------------------
 
-    async def _fire_patch(self, coro, *, description: str) -> None:
+    async def _fire_patch(self, coro: Awaitable[Any], *, description: str) -> None:
         """Run a PATCH coroutine, translating transport errors to HA errors.
 
         Auth errors are NOT raised here — those should reach the coordinator

@@ -25,6 +25,7 @@ import logging
 import time
 from collections import deque
 from email.utils import parsedate_to_datetime
+from typing import Any
 
 import httpx
 from homeassistant.core import HomeAssistant
@@ -84,7 +85,7 @@ class SleepMeAPI:
         data: dict | None = None,
         input_headers: dict | None = None,
         retries: int = DEFAULT_RETRIES,
-    ):
+    ) -> Any:
         """Send one request with retry-on-transient-error.
 
         Raises:
@@ -178,7 +179,8 @@ class SleepMeAPI:
             ):
                 self._request_times.popleft()
 
-            if len(self._request_times) >= self._request_times.maxlen:
+            maxlen = self._request_times.maxlen
+            if maxlen is not None and len(self._request_times) >= maxlen:
                 wait = RATE_LIMIT_WINDOW - (now - self._request_times[0])
                 _LOGGER.warning(
                     "Local rate limit hit on %s %s; would need %.1fs. Rejecting.",
@@ -200,7 +202,7 @@ class SleepMeAPI:
         params: dict | None,
         data: dict | None,
         input_headers: dict | None,
-    ):
+    ) -> Any:
         headers = dict(input_headers or {})
         headers["Authorization"] = f"Bearer {self.token}"
         _LOGGER.debug(
@@ -238,4 +240,4 @@ class SleepMeAPI:
                     return max(0.0, target - time.time())
                 except (TypeError, ValueError):
                     _LOGGER.debug("Unparsable Retry-After: %r", ra)
-        return min(base * (2 ** (attempt - 1)), BACKOFF_CEILING)
+        return float(min(base * (2 ** (attempt - 1)), BACKOFF_CEILING))

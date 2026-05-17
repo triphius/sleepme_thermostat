@@ -144,6 +144,8 @@ This is where the historical latency problem actually gets fixed. **Detailed pla
 
 ### Phase 4 — Testing
 
+**Detailed plan: [`phase-4-testing.md`](./phase-4-testing.md).**
+
 | Status | Item |
 |--------|------|
 | ⬜ | Unit tests for `SleepMeAPI` rate limiter (concurrency + 429 + Retry-After) |

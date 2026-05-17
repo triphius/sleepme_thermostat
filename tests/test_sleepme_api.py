@@ -145,3 +145,36 @@ async def test_compute_backoff_caps_at_ceiling() -> None:
     resp = _http_response(429)
     # 30 * 2**10 = 30720, which should clamp to BACKOFF_CEILING (600).
     assert SleepMeAPI._compute_backoff(30, 11, resp) == 600
+
+
+# ---- Hypothesis property tests ---------------------------------------------
+
+from hypothesis import given  # noqa: E402
+from hypothesis import strategies as st  # noqa: E402
+
+
+@given(
+    retry_after=st.text(
+        alphabet=st.characters(min_codepoint=32, max_codepoint=126),
+        max_size=64,
+    )
+)
+def test_compute_backoff_handles_arbitrary_retry_after(retry_after: str) -> None:
+    """No printable-ASCII Retry-After string crashes _compute_backoff."""
+    resp = httpx.Response(
+        429,
+        headers={"Retry-After": retry_after},
+        request=httpx.Request("GET", "https://x"),
+    )
+    result = SleepMeAPI._compute_backoff(30, 1, resp)
+    assert isinstance(result, float)
+    assert result >= 0
+
+
+@given(attempt=st.integers(min_value=1, max_value=20))
+def test_compute_backoff_no_retry_after_is_monotonic(attempt: int) -> None:
+    """Without Retry-After, backoff is non-decreasing across attempts."""
+    resp = httpx.Response(429, request=httpx.Request("GET", "https://x"))
+    prev = SleepMeAPI._compute_backoff(30, max(1, attempt - 1), resp)
+    curr = SleepMeAPI._compute_backoff(30, attempt, resp)
+    assert curr >= prev

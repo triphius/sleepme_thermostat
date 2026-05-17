@@ -97,7 +97,7 @@ The blocking-correctness pass. **Detailed plan: [`phase-1-p0-fixes.md`](./phase-
 
 ### Phase 2 — HA modernization
 
-Bring the integration in line with current HA conventions.
+Bring the integration in line with current HA conventions. **Detailed plan: [`phase-2-modernization.md`](./phase-2-modernization.md).**
 
 | Status | Item | Audit ref |
 |--------|------|-----------|

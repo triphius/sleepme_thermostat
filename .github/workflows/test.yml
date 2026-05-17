@@ -20,10 +20,10 @@ jobs:
           python-version: "3.14"
           cache: pip
       - run: pip install ruff==0.8.4 black==24.10.0
-      - name: ruff check (tests only in Phase 0)
-        run: ruff check tests
-      - name: black --check (tests only in Phase 0)
-        run: black --check tests
+      - name: ruff check
+        run: ruff check .
+      - name: black --check
+        run: black --check custom_components tests
 
   typecheck:
     name: mypy

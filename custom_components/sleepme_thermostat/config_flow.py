@@ -62,7 +62,7 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_token"
             except (SleepMeRateLimited, SleepMeConnectionError):
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Unexpected error fetching claimed devices")
                 errors["base"] = "cannot_connect"
 
@@ -110,7 +110,7 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_token"
             except (SleepMeRateLimited, SleepMeConnectionError):
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Error fetching device status")
                 errors["base"] = "cannot_fetch_device_info"
 
@@ -124,7 +124,11 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="select_device",
             data_schema=vol.Schema(
-                {vol.Required("device_id"): vol.In(self.context["claimed_devices_dict"])}
+                {
+                    vol.Required("device_id"): vol.In(
+                        self.context["claimed_devices_dict"]
+                    )
+                }
             ),
             errors=errors,
         )
@@ -159,7 +163,7 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_token"
             except (SleepMeRateLimited, SleepMeConnectionError):
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Unexpected error during reauth")
                 errors["base"] = "cannot_connect"
 

@@ -53,9 +53,7 @@ class SleepMeUpdateManager(DataUpdateCoordinator):
         try:
             device_status = await self.client.get_device_status()
         except SleepMeAuthError as err:
-            raise ConfigEntryAuthFailed(
-                "Invalid or revoked SleepMe API token"
-            ) from err
+            raise ConfigEntryAuthFailed("Invalid or revoked SleepMe API token") from err
         except SleepMeRateLimited as err:
             raise UpdateFailed(
                 "SleepMe API rate-limited; will retry next interval"

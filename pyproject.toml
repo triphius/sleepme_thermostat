@@ -26,8 +26,9 @@ select = [
     "RUF",
 ]
 ignore = [
-    "E501",
-    "B008",
+    "E501",  # line length — handled by black
+    "B008",  # function calls in arg defaults — common HA pattern
+    "E731",  # lambda assignments — climate.py verify-loop; Phase 3 removes it
 ]
 
 [tool.ruff.lint.per-file-ignores]

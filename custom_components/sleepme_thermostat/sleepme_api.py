@@ -38,7 +38,9 @@ DEFAULT_RETRIES = 3
 BACKOFF_BASE_429 = 30  # seconds
 BACKOFF_BASE_5XX = 10  # seconds
 BACKOFF_BASE_TIMEOUT = 10  # seconds
-BACKOFF_CEILING = 600  # seconds (10 min); Retry-After may exceed this and we honor it anyway.
+BACKOFF_CEILING = (
+    600  # seconds (10 min); Retry-After may exceed this and we honor it anyway.
+)
 
 
 class SleepMeAPIError(Exception):

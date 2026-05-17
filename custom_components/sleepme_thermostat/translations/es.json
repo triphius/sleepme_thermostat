@@ -15,16 +15,25 @@
         "data": {
           "device_id": "ID del Dispositivo"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-autenticar SleepMe Dock Pro",
+        "description": "Su token de API de SleepMe ya no es válido. Ingrese un nuevo token para volver a conectarse.",
+        "data": {
+          "api_token": "Token de API"
+        }
       }
     },
     "error": {
       "invalid_token": "Token API inválido, por favor intente nuevamente.",
       "cannot_connect": "No se pudo conectar a la API. Por favor, verifique el token e intente nuevamente.",
       "no_devices_found": "No se encontraron dispositivos con el token proporcionado.",
-      "cannot_fetch_device_info": "No se puede obtener la información del dispositivo. Por favor, verifique su conexión e intente nuevamente."
+      "cannot_fetch_device_info": "No se puede obtener la información del dispositivo. Por favor, verifique su conexión e intente nuevamente.",
+      "device_not_found_for_token": "Este token no tiene acceso al dispositivo configurado originalmente."
+    },
+    "abort": {
+      "already_configured": "Este dispositivo ya está configurado.",
+      "reauth_successful": "La re-autenticación fue exitosa."
     }
-  },
-  "abort": {
-    "already_configured": "Este dispositivo ya está configurado."
   }
 }

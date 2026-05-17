@@ -1,108 +1,239 @@
+"""HTTP transport for the SleepMe developer API.
+
+Responsibilities:
+- Authorize requests with bearer token.
+- Rate-limit locally (sliding window, concurrency-safe via instance lock).
+- Retry on 429 + 5xx with monotonically increasing backoff, honoring Retry-After.
+- Surface auth failures (401/403) and connection failures as typed exceptions.
+
+Does NOT:
+- Queue requests when the local rate limiter would block. Raises
+  SleepMeRateLimited; caller (coordinator, config flow, climate path) decides.
+- Manage its own httpx client lifecycle. The client is HA's shared instance,
+  obtained via get_async_client(hass).
+
+If the server asks us to wait (Retry-After), we honor that inside api_request.
+While that sleep is in progress the local deque is not cleared, so a concurrent
+caller can still trip SleepMeRateLimited — which is the desired behavior:
+the server is asking us to back off, so we should locally back off too.
+"""
+
+from __future__ import annotations
+
 import asyncio
-import httpx
 import logging
 import time
-from homeassistant.helpers.httpx_client import get_async_client
-from homeassistant.core import HomeAssistant
 from collections import deque
+from email.utils import parsedate_to_datetime
+
+import httpx
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.httpx_client import get_async_client
 
 _LOGGER = logging.getLogger(__name__)
 
+MAX_REQUESTS_PER_MINUTE = 9
+RATE_LIMIT_WINDOW = 60  # seconds
+DEFAULT_RETRIES = 3
+BACKOFF_BASE_429 = 30  # seconds
+BACKOFF_BASE_5XX = 10  # seconds
+BACKOFF_BASE_TIMEOUT = 10  # seconds
+BACKOFF_CEILING = 600  # seconds (10 min); Retry-After may exceed this and we honor it anyway.
+
+
+class SleepMeAPIError(Exception):
+    """Base for typed transport errors."""
+
+
+class SleepMeAuthError(SleepMeAPIError):
+    """401/403 from the API. Coordinator should raise ConfigEntryAuthFailed."""
+
+
+class SleepMeRateLimited(SleepMeAPIError):
+    """Local rate-limiter would have blocked the request. Caller decides retry."""
+
+
+class SleepMeConnectionError(SleepMeAPIError):
+    """Network-level failure (DNS, refused, timeout). Coordinator should raise UpdateFailed."""
+
+
 class SleepMeAPI:
-    def __init__(self, hass: HomeAssistant, api_url: str, token: str, max_requests_per_minute=9):
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        api_url: str,
+        token: str,
+        max_requests_per_minute: int = MAX_REQUESTS_PER_MINUTE,
+    ) -> None:
         self.api_url = api_url
         self.token = token
         self.client = get_async_client(hass)
-        self.request_times = deque(maxlen=max_requests_per_minute)
-        self.rate_limit_interval = 60  # seconds
+        self._request_times: deque[float] = deque(maxlen=max_requests_per_minute)
+        self._lock = asyncio.Lock()
 
-    async def api_request(self, method: str, endpoint: str, params=None, data=None, input_headers=None, retries=3):
-        """Handles rate limiting, retries, and calls perform_request."""
-        request_id = f"{method.upper()}-{endpoint}-{int(time.time())}"
-        _LOGGER.debug(f"[{request_id}] Starting API request with {retries} retries remaining.")
+    # No close() — the httpx client is HA's shared instance and we must not close it.
 
-        async with asyncio.Lock():
-            current_time = time.time()
+    async def api_request(
+        self,
+        method: str,
+        endpoint: str,
+        *,
+        params: dict | None = None,
+        data: dict | None = None,
+        input_headers: dict | None = None,
+        retries: int = DEFAULT_RETRIES,
+    ):
+        """Send one request with retry-on-transient-error.
 
-            # Rate limiting logic
-            if len(self.request_times) == self.request_times.maxlen and current_time - self.request_times[0] < self.rate_limit_interval:
-                wait_time = self.rate_limit_interval - (current_time - self.request_times[0])
+        Raises:
+            SleepMeAuthError: on 401/403.
+            SleepMeRateLimited: if local rate limiter would block (no queueing).
+            SleepMeConnectionError: on network failure or timeout exhaustion.
+            httpx.HTTPStatusError: on non-retriable HTTP errors after retries exhausted.
+        """
+        attempt = 1
+        while True:
+            await self._enforce_local_rate_limit(method, endpoint)
+            try:
+                return await self._perform_request(
+                    method,
+                    endpoint,
+                    params=params,
+                    data=data,
+                    input_headers=input_headers,
+                )
+            except httpx.HTTPStatusError as err:
+                status = err.response.status_code
+                if status in (401, 403):
+                    raise SleepMeAuthError(f"{status} from {endpoint}") from err
+                if status == 429 and attempt <= retries:
+                    backoff = self._compute_backoff(
+                        BACKOFF_BASE_429, attempt, err.response
+                    )
+                    _LOGGER.warning(
+                        "429 on %s %s; attempt %d/%d, sleeping %.1fs",
+                        method,
+                        endpoint,
+                        attempt,
+                        retries,
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    attempt += 1
+                    continue
+                if status in (500, 502, 503, 504) and attempt <= retries:
+                    backoff = self._compute_backoff(
+                        BACKOFF_BASE_5XX, attempt, err.response
+                    )
+                    _LOGGER.warning(
+                        "HTTP %d on %s %s; attempt %d/%d, sleeping %.1fs",
+                        status,
+                        method,
+                        endpoint,
+                        attempt,
+                        retries,
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    attempt += 1
+                    continue
+                # Non-retriable / out of retries: re-raise.
+                raise
+            except httpx.TimeoutException as err:
+                if attempt > retries:
+                    raise SleepMeConnectionError(f"timeout on {endpoint}") from err
+                backoff = min(
+                    BACKOFF_BASE_TIMEOUT * (2 ** (attempt - 1)), BACKOFF_CEILING
+                )
+                _LOGGER.warning(
+                    "Timeout on %s %s; attempt %d/%d, sleeping %.1fs",
+                    method,
+                    endpoint,
+                    attempt,
+                    retries,
+                    backoff,
+                )
+                await asyncio.sleep(backoff)
+                attempt += 1
+            except httpx.RequestError as err:
+                # DNS, connection refused, etc. Not worth retrying in-call;
+                # coordinator's next poll will retry.
+                raise SleepMeConnectionError(
+                    f"request error on {endpoint}: {err}"
+                ) from err
 
-                if method.upper() == "GET":
-                    _LOGGER.warning(f"[{request_id}] Rate limiting active. Discarding GET request to {endpoint} instead of delaying by {wait_time:.2f} seconds.")
-                    return {}  # Discard the GET request and return an empty dictionary
+    async def _enforce_local_rate_limit(self, method: str, endpoint: str) -> None:
+        """Record the request or raise SleepMeRateLimited.
 
-                _LOGGER.debug(f"[{request_id}] Rate limiting: waiting for {wait_time:.2f} seconds before making {method.upper()} request to {endpoint}.")
-                await asyncio.sleep(wait_time)
+        Sliding window: drop entries older than RATE_LIMIT_WINDOW, then check
+        capacity. We deliberately do NOT queue — caller decides what to do.
+        """
+        async with self._lock:
+            now = time.monotonic()
+            while (
+                self._request_times
+                and now - self._request_times[0] >= RATE_LIMIT_WINDOW
+            ):
+                self._request_times.popleft()
 
-            # Add the current time to the deque
-            self.request_times.append(current_time)
+            if len(self._request_times) >= self._request_times.maxlen:
+                wait = RATE_LIMIT_WINDOW - (now - self._request_times[0])
+                _LOGGER.warning(
+                    "Local rate limit hit on %s %s; would need %.1fs. Rejecting.",
+                    method,
+                    endpoint,
+                    wait,
+                )
+                raise SleepMeRateLimited(
+                    f"{method} {endpoint}: local rate-limiter at capacity"
+                )
 
-        # Perform the API request
-        try:
-            result = await self.perform_request(method, endpoint, params=params, data=data, input_headers=input_headers)
-            _LOGGER.debug(f"[{request_id}] API request successful.")
-            return result
-        except Exception as e:
-            _LOGGER.debug(f"[{request_id}] Exception occurred: {e}. Passing to handle_error.")
-            return await self.handle_error(e, method, endpoint, params, data, input_headers, retries)
+            self._request_times.append(now)
 
-    async def perform_request(self, method: str, endpoint: str, params=None, data=None, input_headers=None):
-        """Executes the actual API request."""
-        request_id = f"{method.upper()}-{endpoint}-{int(time.time())}"
-        headers = input_headers or {}
+    async def _perform_request(
+        self,
+        method: str,
+        endpoint: str,
+        *,
+        params: dict | None,
+        data: dict | None,
+        input_headers: dict | None,
+    ):
+        headers = dict(input_headers or {})
         headers["Authorization"] = f"Bearer {self.token}"
-
-        _LOGGER.debug(f"[{request_id}] Making {method.upper()} request to {self.api_url}/{endpoint} with params: {params} and data: {data}")
-        response = await self.client.request(method, f"{self.api_url}/{endpoint}", headers=headers, json=data, params=params)
+        _LOGGER.debug(
+            "%s %s/%s params=%s data=%s",
+            method,
+            self.api_url,
+            endpoint,
+            params,
+            data,
+        )
+        response = await self.client.request(
+            method,
+            f"{self.api_url}/{endpoint}",
+            headers=headers,
+            json=data,
+            params=params,
+        )
         response.raise_for_status()
-        _LOGGER.debug(f"[{request_id}] Request to {endpoint} completed successfully with status {response.status_code}.")
-        return response.json()  # Process and return the JSON response
+        return response.json()
 
-    async def handle_error(self, error, method: str, endpoint: str, params=None, data=None, input_headers=None, retries=3):
-        """Classifies errors and applies backoff before retrying if necessary."""
-        request_id = f"{method.upper()}-{endpoint}-{int(time.time())}"
+    @staticmethod
+    def _compute_backoff(base: int, attempt: int, response: httpx.Response) -> float:
+        """Resolve backoff seconds.
 
-        if retries <= 0:
-            _LOGGER.debug(f"[{request_id}] API request to {endpoint} failed after all retries.")
-            return {}  # Return an empty dictionary on failure
-
-        _LOGGER.warning(f"[{request_id}] Handling error: {error}. Retries remaining: {retries}")
-
-        # Determine backoff time based on error type
-        if isinstance(error, httpx.HTTPStatusError):
-            if error.response.status_code == 403:
-                _LOGGER.debug(f"[{request_id}] Invalid API token. Received 403 Forbidden for {self.api_url}/{endpoint}.")
-                raise ValueError("invalid_token")
-            elif error.response.status_code == 429:
-                # Backoff times: 30, 60, 120, 240... seconds for 429 errors
-                initial_backoff = 30
-                _LOGGER.warning(f"[{request_id}] 429 Too Many Requests. Applying backoff starting at {initial_backoff} seconds.")
-            elif error.response.status_code in {500, 502, 503, 504}:
-                # Backoff times: 10, 20, 40, 80... seconds for server errors
-                initial_backoff = 10
-                _LOGGER.warning(f"[{request_id}] Server error {error.response.status_code}. Applying backoff starting at {initial_backoff} seconds.")
-            else:
-                _LOGGER.debug(f"[{request_id}] HTTP error {error.response.status_code}. No retry configured.")
-                raise ValueError("cannot_connect")
-        elif isinstance(error, httpx.TimeoutException):
-            # Backoff times: 10, 20, 40, 80... seconds for timeouts
-            initial_backoff = 10
-            _LOGGER.warning(f"[{request_id}] Timeout occurred. Applying backoff starting at {initial_backoff} seconds.")
-        elif isinstance(error, httpx.RequestError):
-            _LOGGER.debug(f"[{request_id}] Request error: {error}. Cannot connect.")
-            raise ValueError("cannot_connect")
-
-        backoff_time = initial_backoff * (2 ** (retries - 1))
-        _LOGGER.warning(f"[{request_id}] Retrying after {backoff_time} seconds. Retries left: {retries-1}")
-
-        await asyncio.sleep(backoff_time)
-
-        # Retry the API request with one less retry
-        return await self.api_request(method, endpoint, params=params, data=data, input_headers=input_headers, retries=retries-1)
-
-    async def close(self):
-        """Close the httpx client."""
-        _LOGGER.debug("Closing HTTP client...")
-        await self.client.aclose()
-        _LOGGER.debug("HTTP client closed.")
+        Honors Retry-After (integer seconds or HTTP-date). Falls back to
+        base * 2**(attempt-1), capped at BACKOFF_CEILING.
+        """
+        ra = response.headers.get("Retry-After")
+        if ra:
+            try:
+                return float(int(ra))
+            except ValueError:
+                try:
+                    target = parsedate_to_datetime(ra).timestamp()
+                    return max(0.0, target - time.time())
+                except (TypeError, ValueError):
+                    _LOGGER.debug("Unparsable Retry-After: %r", ra)
+        return min(base * (2 ** (attempt - 1)), BACKOFF_CEILING)

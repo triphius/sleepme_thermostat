@@ -21,16 +21,28 @@
         "data_description": {
           "device_id": "Choose one of the devices discovered."
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate SleepMe Dock Pro",
+        "description": "Your SleepMe API token is no longer valid. Enter a new token to reconnect.",
+        "data": {
+          "api_token": "API Token"
+        },
+        "data_description": {
+          "api_token": "Paste a fresh token generated in the SleepMe Developer API section."
+        }
       }
     },
     "error": {
       "invalid_token": "Invalid API token, please try again.",
       "cannot_connect": "Failed to connect to the SleepMe API.",
       "no_devices_found": "No devices found for this API token.",
-      "cannot_fetch_device_info": "Unable to fetch device information."
+      "cannot_fetch_device_info": "Unable to fetch device information.",
+      "device_not_found_for_token": "This token does not have access to the originally configured device."
     },
     "abort": {
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "reauth_successful": "Re-authentication was successful."
     }
   }
 }

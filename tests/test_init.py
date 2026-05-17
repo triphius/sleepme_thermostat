@@ -1,29 +1,35 @@
-"""Smoke test: integration sets up and unloads cleanly with a mocked API client."""
+"""Setup/unload/multi-entry smoke tests."""
 
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-import pytest
 from custom_components.sleepme_thermostat.const import API_URL, DOMAIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from tests.const import MOCK_API_TOKEN, MOCK_DEVICE_ID, MOCK_NAME
 
 
-def _make_entry() -> MockConfigEntry:
+def _make_entry(
+    *,
+    entry_id: str = "entry_main",
+    device_id: str = MOCK_DEVICE_ID,
+    title_suffix: str = MOCK_NAME,
+) -> MockConfigEntry:
     return MockConfigEntry(
         domain=DOMAIN,
+        entry_id=entry_id,
         version=3,
-        unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro {MOCK_NAME}",
+        unique_id=device_id,
+        title=f"Dock Pro {title_suffix}",
         data={
             "api_url": API_URL,
             "api_token": MOCK_API_TOKEN,
-            "device_id": MOCK_DEVICE_ID,
-            "name": MOCK_NAME,
+            "device_id": device_id,
+            "name": title_suffix,
             "firmware_version": "0.0.0-test",
             "mac_address": "aa:bb:cc:dd:ee:ff",
             "model": "Dock Pro",
@@ -43,22 +49,57 @@ async def test_setup_entry_loads(
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
+    assert entry.entry_id in hass.data[DOMAIN]
+    assert "coordinator" in hass.data[DOMAIN][entry.entry_id]
 
 
 async def test_unload_entry(
     hass: HomeAssistant, mock_sleepme_client: AsyncMock
 ) -> None:
-    """Entry can be unloaded.
-
-    Phase 0 placeholder: the integration has no async_unload_entry yet (audit #7).
-    Marked xfail so CI is green; Phase 1 lands the implementation and flips this
-    to a pass, giving us a built-in regression check.
-    """
+    """Entry unloads cleanly; data is cleared; no lingering timers."""
     entry = _make_entry()
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    pytest.xfail("async_unload_entry not implemented yet — Phase 1 deliverable")
     assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
     assert entry.state is ConfigEntryState.NOT_LOADED
+    assert entry.entry_id not in hass.data[DOMAIN]
+
+
+async def test_multi_entry_isolation(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """Two entries co-exist with distinct hass.data keys; unloading one leaves the other loaded."""
+    entry_a = _make_entry(
+        entry_id="entry_a", device_id="device_a", title_suffix="Ramon"
+    )
+    entry_b = _make_entry(
+        entry_id="entry_b", device_id="device_b", title_suffix="Chiva"
+    )
+    entry_a.add_to_hass(hass)
+    entry_b.add_to_hass(hass)
+
+    # Setting up the component drives setup of all registered entries.
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    assert entry_a.state is ConfigEntryState.LOADED
+    assert entry_b.state is ConfigEntryState.LOADED
+    assert "entry_a" in hass.data[DOMAIN]
+    assert "entry_b" in hass.data[DOMAIN]
+    # Distinct coordinator instances per entry.
+    assert (
+        hass.data[DOMAIN]["entry_a"]["coordinator"]
+        is not hass.data[DOMAIN]["entry_b"]["coordinator"]
+    )
+
+    # Unload one; the other survives.
+    assert await hass.config_entries.async_unload(entry_a.entry_id)
+    await hass.async_block_till_done()
+    assert entry_a.state is ConfigEntryState.NOT_LOADED
+    assert entry_b.state is ConfigEntryState.LOADED
+    assert "entry_a" not in hass.data[DOMAIN]
+    assert "entry_b" in hass.data[DOMAIN]

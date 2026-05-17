@@ -1,12 +1,25 @@
+"""Config flow for SleepMe Thermostat."""
+
+from __future__ import annotations
+
 import logging
+from typing import Any
+
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.data_entry_flow import FlowResult
+
+from .const import API_URL, DOMAIN
 from .sleepme import SleepMeClient
-from .const import DOMAIN, API_URL
-from httpx import HTTPStatusError
+from .sleepme_api import (
+    SleepMeAuthError,
+    SleepMeConnectionError,
+    SleepMeRateLimited,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SleepMe Thermostat."""
@@ -14,48 +27,43 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 3
 
     def __init__(self) -> None:
-        """Initialize the config flow."""
-        self.api_token = ""
-        self.claimed_devices = []
+        self.api_token: str = ""
+        self.claimed_devices: list = []
+        self._reauth_entry: ConfigEntry | None = None
 
     @staticmethod
     def _schema(api_token: str = "") -> vol.Schema:
-        """Return the schema for the current step."""
-        return vol.Schema({
-            vol.Required("api_token", default=api_token): str,
-        })
+        return vol.Schema(
+            {
+                vol.Required("api_token", default=api_token): str,
+            }
+        )
 
     async def async_step_user(self, user_input=None) -> FlowResult:
         """Handle the initial step."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            _LOGGER.debug(f"User input received: {user_input}")
+            _LOGGER.debug(
+                "User submitted api token (length=%d)",
+                len(user_input.get("api_token", "")),
+            )
             self.api_token = user_input.get("api_token")
 
             client = SleepMeClient(self.hass, API_URL, self.api_token)
 
             try:
                 self.claimed_devices = await client.get_claimed_devices()
-                _LOGGER.debug(f"Claimed devices: {self.claimed_devices}")
-
                 if not self.claimed_devices:
                     errors["base"] = "no_devices_found"
                 else:
                     return await self.async_step_select_device()
-
-            except ValueError as err:
-                if str(err) == "invalid_token":
-                    _LOGGER.error(f"Invalid token error: {err}")
-                    errors["base"] = "invalid_token"
-                else:
-                    _LOGGER.error(f"Unexpected ValueError: {err}")
-                    errors["base"] = "cannot_connect"
-            except HTTPStatusError as e:
-                _LOGGER.error(f"HTTP error fetching claimed devices: {e}")
+            except SleepMeAuthError:
+                errors["base"] = "invalid_token"
+            except (SleepMeRateLimited, SleepMeConnectionError):
                 errors["base"] = "cannot_connect"
-            except Exception as e:
-                _LOGGER.error(f"Unexpected error fetching claimed devices: {e}")
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error fetching claimed devices")
                 errors["base"] = "cannot_connect"
 
         return self.async_show_form(
@@ -65,12 +73,10 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_select_device(self, user_input=None) -> FlowResult:
-        """Step 2: Select a device from the list of claimed devices."""
-        errors = {}
+        """Step 2: select a device from the list of claimed devices."""
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            _LOGGER.debug(f"Device selected: {user_input}")
-
             device_id = user_input["device_id"]
             name = self.context["claimed_devices_dict"][device_id]
 
@@ -81,8 +87,6 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 device_status = await client.get_device_status()
-                _LOGGER.debug(f"Device status: {device_status}")
-
                 return self.async_create_entry(
                     title=f"Dock Pro {name}",
                     data={
@@ -90,33 +94,77 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "api_token": self.api_token,
                         "device_id": device_id,
                         "name": name,
-                        "firmware_version": device_status.get("about", {}).get("firmware_version"),
-                        "mac_address": device_status.get("about", {}).get("mac_address"),
+                        "firmware_version": device_status.get("about", {}).get(
+                            "firmware_version"
+                        ),
+                        "mac_address": device_status.get("about", {}).get(
+                            "mac_address"
+                        ),
                         "model": device_status.get("about", {}).get("model"),
-                        "serial_number": device_status.get("about", {}).get("serial_number"),
+                        "serial_number": device_status.get("about", {}).get(
+                            "serial_number"
+                        ),
                     },
                 )
-
-            except Exception as e:
-                _LOGGER.error(f"Error fetching device status: {e}")
+            except SleepMeAuthError:
+                errors["base"] = "invalid_token"
+            except (SleepMeRateLimited, SleepMeConnectionError):
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Error fetching device status")
                 errors["base"] = "cannot_fetch_device_info"
 
         if self.claimed_devices:
-            claimed_devices_dict = {device["id"]: device["name"] for device in self.claimed_devices}
-            self.context["claimed_devices_dict"] = claimed_devices_dict
+            self.context["claimed_devices_dict"] = {
+                device["id"]: device["name"] for device in self.claimed_devices
+            }
         else:
             errors["base"] = "no_devices_found"
 
-        data_schema = vol.Schema({
-            vol.Required("device_id"): vol.In(self.context["claimed_devices_dict"])
-        })
-
         return self.async_show_form(
             step_id="select_device",
-            data_schema=data_schema,
-            errors=errors
+            data_schema=vol.Schema(
+                {vol.Required("device_id"): vol.In(self.context["claimed_devices_dict"])}
+            ),
+            errors=errors,
         )
 
-    async def async_step_import(self, user_input=None) -> FlowResult:
-        """Handle import from YAML."""
-        return await self.async_step_user(user_input)
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+        """Reauth triggered by coordinator raising ConfigEntryAuthFailed."""
+        self._reauth_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None) -> FlowResult:
+        """Prompt for a new API token and validate it against the API."""
+        errors: dict[str, str] = {}
+        assert self._reauth_entry is not None
+
+        if user_input is not None:
+            new_token = user_input["api_token"]
+            client = SleepMeClient(self.hass, API_URL, new_token)
+            try:
+                claimed = await client.get_claimed_devices()
+                existing_device_id = self._reauth_entry.data["device_id"]
+                if not any(d.get("id") == existing_device_id for d in claimed):
+                    errors["base"] = "device_not_found_for_token"
+                else:
+                    return self.async_update_reload_and_abort(
+                        self._reauth_entry,
+                        data={**self._reauth_entry.data, "api_token": new_token},
+                        reason="reauth_successful",
+                    )
+            except SleepMeAuthError:
+                errors["base"] = "invalid_token"
+            except (SleepMeRateLimited, SleepMeConnectionError):
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error during reauth")
+                errors["base"] = "cannot_connect"
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required("api_token"): str}),
+            errors=errors,
+        )

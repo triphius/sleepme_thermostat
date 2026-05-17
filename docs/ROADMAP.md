@@ -68,7 +68,7 @@ Set the scaffolding so every subsequent phase ships with tests, lint, and CI. **
 
 ### Phase 1 — P0 fixes
 
-The blocking-correctness pass. Detailed plan: `docs/phase-1-p0-fixes.md` (to be generated via Plan agent before execution).
+The blocking-correctness pass. **Detailed plan: [`phase-1-p0-fixes.md`](./phase-1-p0-fixes.md).**
 
 | Status | Item | Audit ref |
 |--------|------|-----------|

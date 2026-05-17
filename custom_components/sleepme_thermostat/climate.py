@@ -26,12 +26,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up SleepMe Thermostat climate entity from a config entry."""
     device_id = entry.data.get("device_id")
     name = entry.data.get("name")
-    coordinator = hass.data[DOMAIN][f"{device_id}_update_manager"]
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    _LOGGER.debug(f"[Device {device_id}] Setting up SleepMeThermostat entity with name: {name}")
+    _LOGGER.debug(
+        "[Device %s] Setting up SleepMeThermostat entity with name: %s",
+        device_id,
+        name,
+    )
     thermostat = SleepMeThermostat(coordinator, device_id, name, entry.data)
-
-    hass.data[DOMAIN][device_id] = thermostat
     async_add_entities([thermostat])
 
 class SleepMeThermostat(CoordinatorEntity, ClimateEntity):

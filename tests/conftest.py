@@ -16,16 +16,6 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     yield
 
 
-@pytest.fixture(autouse=True)
-def expected_lingering_timers() -> bool:
-    """Phase 0: tolerate lingering timers because the integration has no
-    async_unload_entry yet (audit #7). The DataUpdateCoordinator's polling
-    timer survives teardown. Phase 1 lands the unload and this fixture
-    should be removed so the lingering-timer check protects future regressions.
-    """
-    return True
-
-
 @pytest.fixture
 def mock_sleepme_client() -> Generator[AsyncMock]:
     """Mock SleepMeClient so no real network calls happen.

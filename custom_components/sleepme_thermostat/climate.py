@@ -51,7 +51,7 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
             "connections": {("mac", device_info.get("mac_address"))},
             "serial_number": device_info.get("serial_number"),
         }
-    
+
     async def _async_api_command_with_retry(
         self,
         command_callable: Callable[[], Awaitable[Any]],
@@ -180,7 +180,7 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
             return
 
         _LOGGER.info(f"[Device {self._device_id}] Setting target temperature to {target_temp}C")
-        
+
         command_func = lambda: self.coordinator.client.set_temp_level(target_temp)
         verification = lambda: self.coordinator.data["control"].get("set_temperature_c") == round_half_up(target_temp)
 

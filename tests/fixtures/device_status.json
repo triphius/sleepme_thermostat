@@ -1,0 +1,22 @@
+{
+  "status": {
+    "water_temperature_c": 22.0,
+    "is_water_low": false,
+    "is_connected": true
+  },
+  "control": {
+    "set_temperature_c": 22.0,
+    "thermal_control_status": "standby",
+    "brightness_level": 50,
+    "display_temperature_unit": "c",
+    "time_zone": "America/Mexico_City"
+  },
+  "about": {
+    "firmware_version": "0.0.0-test",
+    "mac_address": "aa:bb:cc:dd:ee:ff",
+    "model": "Dock Pro",
+    "serial_number": "TEST-SERIAL",
+    "ip_address": "192.168.1.100",
+    "lan_address": "192.168.1.100"
+  }
+}

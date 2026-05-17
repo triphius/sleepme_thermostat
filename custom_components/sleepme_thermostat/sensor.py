@@ -32,10 +32,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
     time_zone_sensor = TimeZoneSensor(coordinator, thermostat, device_id, name)
 
     async_add_entities([
-        ip_address_sensor, 
-        lan_address_sensor, 
-        brightness_level_sensor, 
-        display_temp_unit_sensor, 
+        ip_address_sensor,
+        lan_address_sensor,
+        brightness_level_sensor,
+        display_temp_unit_sensor,
         time_zone_sensor
     ])
 

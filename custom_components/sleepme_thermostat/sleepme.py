@@ -58,7 +58,7 @@ class SleepMeClient:
         """Return a list of claimed devices for the given token, with retry logic."""
         endpoint = "devices"
         _LOGGER.debug(f"[Device {self.device_id}] Fetching claimed devices from {endpoint}")
-        
+
         response = await self.api.api_request("GET", endpoint, retries=retries)
 
         if isinstance(response, list):
@@ -72,12 +72,12 @@ class SleepMeClient:
         """Retrieve the device status, with retry logic."""
         endpoint = f"devices/{self.device_id}"
         _LOGGER.debug(f"[Device {self.device_id}] Fetching device status from {endpoint}")
-        
+
         response = await self.api.api_request("GET", endpoint, retries=retries)
-        
+
         if isinstance(response, dict):
             _LOGGER.debug(f"[Device {self.device_id}] Device status: {response}")
             return response
-        
+
         _LOGGER.error(f"Failed to fetch device status for {self.device_id}. Response: {response}")
         return {}

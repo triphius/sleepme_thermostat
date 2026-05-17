@@ -1,0 +1,7 @@
+# HA Core 2026.4+ requires Python 3.14. Bump in tandem with HA target.
+# pytest-asyncio and pytest are pulled in transitively by
+# pytest-homeassistant-custom-component; pinning here causes resolver conflicts,
+# so we let p-h-c-c control the test stack.
+homeassistant==2026.5.2
+pytest-homeassistant-custom-component==0.13.331
+pytest-cov==7.1.0

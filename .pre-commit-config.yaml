@@ -1,0 +1,38 @@
+# Run with: pre-commit run --all-files
+# Install hooks: pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        exclude: ^\.vscode/
+      - id: end-of-file-fixer
+        exclude: ^custom_components/sleepme_thermostat/translations/
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^tests/
+      - id: ruff-format
+        files: ^tests/
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        files: ^tests/
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        args: ["--ignore-words-list=hass,nd"]
+        exclude: ^(custom_components/sleepme_thermostat/translations/|tests/fixtures/)

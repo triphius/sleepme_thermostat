@@ -44,7 +44,7 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Return the options flow handler for this integration."""
-        return SleepMeOptionsFlowHandler(config_entry)
+        return SleepMeOptionsFlowHandler()
 
     @staticmethod
     def _schema(api_token: str = "") -> vol.Schema:
@@ -190,10 +190,11 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class SleepMeOptionsFlowHandler(OptionsFlow):
-    """Options flow: poll interval only (Phase 2)."""
+    """Options flow: poll interval only (Phase 2).
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        self.config_entry = config_entry
+    `self.config_entry` is set automatically by HA's framework — do not assign
+    it in __init__ (the attribute is read-only in HA Core 2024.12+).
+    """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -211,14 +212,18 @@ class SleepMeOptionsFlowHandler(OptionsFlow):
         current = self.config_entry.options.get(
             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
         )
+        # NumberSelector intentionally has no min/max bounds — the Python check
+        # below is the single source of truth for the allowed range. Bound
+        # enforcement at the schema layer would prevent our `invalid_scan_interval`
+        # error key from surfacing in the form.
         schema = vol.Schema(
             {
                 vol.Required(
                     CONF_SCAN_INTERVAL, default=current
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=MIN_SCAN_INTERVAL,
-                        max=MAX_SCAN_INTERVAL,
+                        min=0,
+                        max=86400,
                         step=1,
                         unit_of_measurement="seconds",
                         mode=selector.NumberSelectorMode.BOX,

@@ -40,6 +40,17 @@ jobs:
         # `|| true` keeps the job green while we adopt mypy. Drop the suffix in Phase 4.
         run: mypy custom_components/sleepme_thermostat || true
 
+  i18n-check:
+    name: strings.json mirrors translations/en.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify strings.json is identical to translations/en.json
+        run: |
+          diff -q \
+            custom_components/sleepme_thermostat/strings.json \
+            custom_components/sleepme_thermostat/translations/en.json
+
   pytest:
     name: pytest (HA ${{ matrix.ha-version }})
     runs-on: ubuntu-latest

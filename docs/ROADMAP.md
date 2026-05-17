@@ -56,8 +56,9 @@ Set the scaffolding so every subsequent phase ships with tests, lint, and CI. **
 | ✅ | Document deploy workflow to HA OS host (rsync + `ha core restart`) in `phase-0-foundation.md` and `Makefile` |
 | ✅ | Add `Makefile` with `deploy`, `restart`, `deploy-restart`, `test`, `lint`, `typecheck` targets |
 | ✅ | Update `.gitignore` for venv / cache dirs |
-| ⬜ | **Maintainer action:** verify `make deploy-restart HA_HOST=<ip>` against live Dock Pro and confirm no log regressions |
-| ⬜ | **Maintainer action:** commit & push branch, confirm all three CI jobs green |
+| ✅ | Deploy verified against live HA host (PR #38): rsync was unreliable in the SSH addon → switched to tar-over-ssh with sudo; integration imports cleanly. Both `Dock Pro Ramon` and `Dock Pro Chiva` config entries are currently `disabled_by: user` (user re-enables when ready to runtime-validate). |
+| ✅ | All CI green on PR #38: Test (lint, mypy, pytest), Validate HACS (hassfest x2, HACS Action x2), CodeQL (Analyze + CodeQL). 9/9 checks pass. |
+| ⬜ | **Maintainer action:** review PR #38 and merge to `main`. |
 
 **Exit criteria:** `ruff`, `black --check`, `mypy`, and `pytest` all pass green in CI. No code-behavior changes yet.
 

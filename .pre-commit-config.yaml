@@ -35,4 +35,4 @@ repos:
     hooks:
       - id: codespell
         args: ["--ignore-words-list=hass,nd"]
-        exclude: ^(custom_components/sleepme_thermostat/translations/|tests/fixtures/)
+        exclude: ^(custom_components/sleepme_thermostat/translations/|tests/fixtures/|docs/)

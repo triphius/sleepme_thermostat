@@ -5,25 +5,13 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
-from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .helpers import build_device_info
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _device_info(device_id: str, name: str, info: dict) -> dict:
-    return {
-        "identifiers": {(DOMAIN, device_id)},
-        "name": f"Dock Pro {name}",
-        "manufacturer": "SleepMe",
-        "model": info.get("model"),
-        "sw_version": info.get("firmware_version"),
-        "connections": {(CONNECTION_NETWORK_MAC, info.get("mac_address"))},
-        "serial_number": info.get("serial_number"),
-    }
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -32,7 +20,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     name = entry.data.get("name")
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator = entry_data["coordinator"]
-    device_info = _device_info(device_id, name, entry_data["device_info"])
+    device_info = build_device_info(device_id, name, entry_data["device_info"])
 
     async_add_entities(
         [

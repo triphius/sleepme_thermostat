@@ -11,14 +11,10 @@ import logging
 
 from homeassistant.core import HomeAssistant
 
+from .helpers import round_half_up
 from .sleepme_api import SleepMeAPI
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def round_half_up(n: float) -> float:
-    """Round a number to the nearest .0 or .5."""
-    return round(n * 2) / 2
 
 
 class SleepMeClient:

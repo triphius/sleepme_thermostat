@@ -9,7 +9,14 @@ DOMAIN = "sleepme_thermostat"
 PRESET_MAX_COOL = "Max Cool"
 PRESET_MAX_HEAT = "Max Heat"
 
+# Sentinel values documented by the SleepMe API:
+#   set_temperature_c == -1.0  -> MAX COLD
+#   set_temperature_c == 999.0 -> MAX HEAT
 PRESET_TEMPERATURES = {PRESET_MAX_COOL: -1, PRESET_MAX_HEAT: 999}
+
+# Documented temperature range for set_temperature_c (half-degree increments).
+MIN_TEMP_C = 13.0
+MAX_TEMP_C = 48.0
 
 # Options flow
 CONF_SCAN_INTERVAL = "scan_interval"

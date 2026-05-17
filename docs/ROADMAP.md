@@ -120,7 +120,7 @@ Bring the integration in line with current HA conventions. **Detailed plan: [`ph
 
 ### Phase 3 — Climate refactor (the rate-limit win)
 
-This is where the historical latency problem actually gets fixed. Detailed plan deferred until Phase 1 is in and we have real-device measurements to compare against.
+This is where the historical latency problem actually gets fixed. **Detailed plan: [`phase-3-climate-refactor.md`](./phase-3-climate-refactor.md).**
 
 | Status | Item | Audit ref |
 |--------|------|-----------|
@@ -184,3 +184,4 @@ This is where the historical latency problem actually gets fixed. Detailed plan 
 
 - *2026-05-16:* Roadmap structured by priority phase rather than by file/feature, because P0 items cross multiple files and need to ship together to clear the "is this safe to publish?" bar.
 - *2026-05-16:* Phase 3 (the rate-limit win) deliberately sits behind Phase 1, so the verify-loop removal lands against a stable base instead of mixed with bug fixes.
+- *2026-05-17:* SleepMe API docs at <https://docs.developer.sleep.me/api/> confirm `set_temperature_c` accepts `-1.0` (MAX COLD), `13.0–48.0` in half-degree steps, or `999.0` (MAX HEAT). Sentinels are part of the API contract, not an integration hack. Phase 3 will use Design A (sentinels survive the API roundtrip; no `RestoreEntity` needed). Temperature bounds corrected from the audit's guessed `12.5–46.5` to the documented `13.0–48.0`.

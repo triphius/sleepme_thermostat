@@ -5,7 +5,11 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from custom_components.sleepme_thermostat.const import API_URL, DOMAIN
+from custom_components.sleepme_thermostat.const import (
+    API_URL,
+    CONF_SCAN_INTERVAL,
+    DOMAIN,
+)
 from custom_components.sleepme_thermostat.sleepme_api import (
     SleepMeAuthError,
     SleepMeConnectionError,
@@ -214,3 +218,77 @@ async def test_reauth_invalid_token(
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_token"}
+
+
+def _entry_with_default_options() -> MockConfigEntry:
+    return MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry_opts",
+        version=3,
+        unique_id=MOCK_DEVICE_ID,
+        title=f"Dock Pro {MOCK_NAME}",
+        data={
+            "api_url": API_URL,
+            "api_token": MOCK_API_TOKEN,
+            "device_id": MOCK_DEVICE_ID,
+            "name": MOCK_NAME,
+            "firmware_version": "1.0",
+            "mac_address": "aa:bb:cc:dd:ee:ff",
+            "model": "Dock Pro",
+            "serial_number": "SN-1",
+        },
+    )
+
+
+async def test_options_flow_happy_path(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """Submitting a valid scan_interval persists in entry.options and reloads."""
+    entry = _entry_with_default_options()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # Open the options flow.
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    # Submit a valid interval.
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_SCAN_INTERVAL: 60}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options[CONF_SCAN_INTERVAL] == 60
+
+    await hass.async_block_till_done()
+    # Entry was reloaded; new coordinator has the new interval.
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    assert coordinator.update_interval.total_seconds() == 60
+
+
+async def test_options_flow_rejects_out_of_range(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """Out-of-range values surface as a form error and are not persisted."""
+    entry = _entry_with_default_options()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # Too low.
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_SCAN_INTERVAL: 5}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_SCAN_INTERVAL: "invalid_scan_interval"}
+    assert CONF_SCAN_INTERVAL not in entry.options
+
+    # Too high — start a new flow, separate from the previous (still-open) one.
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_SCAN_INTERVAL: 301}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_SCAN_INTERVAL: "invalid_scan_interval"}

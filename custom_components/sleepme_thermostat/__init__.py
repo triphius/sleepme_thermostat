@@ -9,7 +9,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 
-from .const import API_URL, DOMAIN
+from .const import (
+    API_URL,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
 from .sleepme import SleepMeClient
 from .update_manager import SleepMeUpdateManager
 
@@ -35,8 +40,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not api_token or not device_id:
         raise ConfigEntryNotReady("API token or device ID missing from entry data")
 
+    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+
     client = SleepMeClient(hass, api_url, api_token, device_id)
-    coordinator = SleepMeUpdateManager(hass, api_url, api_token, device_id)
+    coordinator = SleepMeUpdateManager(
+        hass, api_url, api_token, device_id, scan_interval=scan_interval
+    )
 
     # First refresh propagates ConfigEntryAuthFailed (-> reauth flow) and
     # ConfigEntryNotReady (-> HA retries setup) without further plumbing.
@@ -53,6 +62,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         },
     }
 
+    # Reload on options change. async_on_unload registers the unsubscribe so
+    # it fires automatically during async_unload_entry.
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.debug(
         "Entry %s set up for device %s (model=%s, fw=%s)",
@@ -62,6 +75,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.data.get("firmware_version"),
     )
     return True
+
+
+async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the entry when its options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

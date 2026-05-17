@@ -7,10 +7,19 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, OptionsFlow
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 
-from .const import API_URL, DOMAIN
+from .const import (
+    API_URL,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    MAX_SCAN_INTERVAL,
+    MIN_SCAN_INTERVAL,
+)
 from .sleepme import SleepMeClient
 from .sleepme_api import (
     SleepMeAuthError,
@@ -30,6 +39,12 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.api_token: str = ""
         self.claimed_devices: list = []
         self._reauth_entry: ConfigEntry | None = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Return the options flow handler for this integration."""
+        return SleepMeOptionsFlowHandler(config_entry)
 
     @staticmethod
     def _schema(api_token: str = "") -> vol.Schema:
@@ -170,5 +185,49 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=vol.Schema({vol.Required("api_token"): str}),
+            errors=errors,
+        )
+
+
+class SleepMeOptionsFlowHandler(OptionsFlow):
+    """Options flow: poll interval only (Phase 2)."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Show + handle the options form."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            value = user_input[CONF_SCAN_INTERVAL]
+            if not MIN_SCAN_INTERVAL <= value <= MAX_SCAN_INTERVAL:
+                errors[CONF_SCAN_INTERVAL] = "invalid_scan_interval"
+            else:
+                return self.async_create_entry(title="", data=user_input)
+
+        current = self.config_entry.options.get(
+            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+        )
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_SCAN_INTERVAL, default=current
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=MIN_SCAN_INTERVAL,
+                        max=MAX_SCAN_INTERVAL,
+                        step=1,
+                        unit_of_measurement="seconds",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+            }
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
             errors=errors,
         )

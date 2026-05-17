@@ -10,6 +10,7 @@ from homeassistant.components.climate.const import (
     HVACMode,
 )
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, PRESET_MAX_COOL, PRESET_MAX_HEAT, PRESET_TEMPERATURES
@@ -42,20 +43,22 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
+    _attr_has_entity_name = True
+    _attr_name = None  # primary entity — friendly name == device name
+
     def __init__(self, coordinator, device_id, name, device_info):
         super().__init__(coordinator)
-        self._name = f"Dock Pro {name}"
         self._device_id = device_id
         self._attr_unique_id = f"{DOMAIN}_{device_id}_thermostat"
         self._previous_target_temperature = None
 
         self._attr_device_info = {
             "identifiers": {(DOMAIN, self._device_id)},
-            "name": self._name,
+            "name": f"Dock Pro {name}",
             "manufacturer": "SleepMe",
             "model": device_info.get("model"),
             "sw_version": device_info.get("firmware_version"),
-            "connections": {("mac", device_info.get("mac_address"))},
+            "connections": {(CONNECTION_NETWORK_MAC, device_info.get("mac_address"))},
             "serial_number": device_info.get("serial_number"),
         }
 
@@ -126,10 +129,6 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
         return 46.5
 
     @property
-    def name(self):
-        return self._name
-
-    @property
     def temperature_unit(self):
         return UnitOfTemperature.CELSIUS
 
@@ -198,12 +197,16 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
             target_temp not in PRESET_TEMPERATURES.values()
         ):
             _LOGGER.warning(
-                f"[Device {self._device_id}] Temperature {target_temp}C is out of range."
+                "[Device %s] Temperature %sC is out of range.",
+                self._device_id,
+                target_temp,
             )
             return
 
         _LOGGER.info(
-            f"[Device {self._device_id}] Setting target temperature to {target_temp}C"
+            "[Device %s] Setting target temperature to %sC",
+            self._device_id,
+            target_temp,
         )
 
         command_func = lambda: self.coordinator.client.set_temp_level(target_temp)

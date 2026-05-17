@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -20,7 +21,7 @@ def _device_info(device_id: str, name: str, info: dict) -> dict:
         "manufacturer": "SleepMe",
         "model": info.get("model"),
         "sw_version": info.get("firmware_version"),
-        "connections": {("mac", info.get("mac_address"))},
+        "connections": {(CONNECTION_NETWORK_MAC, info.get("mac_address"))},
         "serial_number": info.get("serial_number"),
     }
 
@@ -47,12 +48,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class _SleepMeDiagnosticSensor(CoordinatorEntity, SensorEntity):
     """Common base for diagnostic sensors."""
 
+    _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, device_id, name, device_info, *, suffix, label):
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_name = f"Dock Pro {name} {label}"
+        self._attr_name = label
         self._attr_unique_id = f"{DOMAIN}_{device_id}_{suffix}"
         self._attr_device_info = device_info
 
@@ -102,6 +104,7 @@ class BrightnessLevelSensor(_SleepMeDiagnosticSensor):
 
     _attr_icon = "mdi:brightness-6"
     _attr_native_unit_of_measurement = "%"
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, device_id, name, device_info):
         super().__init__(

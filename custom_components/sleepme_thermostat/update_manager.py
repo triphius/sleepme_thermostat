@@ -38,6 +38,7 @@ class SleepMeUpdateManager(DataUpdateCoordinator):
         api_url: str,
         token: str,
         device_id: str,
+        scan_interval: int = 20,
     ) -> None:
         self.client = SleepMeClient(hass, api_url, token, device_id)
         self.device_id = device_id
@@ -45,7 +46,7 @@ class SleepMeUpdateManager(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=f"SleepMe Update Manager {device_id}",
-            update_interval=timedelta(seconds=20),
+            update_interval=timedelta(seconds=scan_interval),
         )
 
     async def _async_update_data(self) -> dict:

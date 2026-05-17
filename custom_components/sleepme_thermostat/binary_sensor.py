@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -20,7 +21,7 @@ def _device_info(device_id: str, name: str, info: dict) -> dict:
         "manufacturer": "SleepMe",
         "model": info.get("model"),
         "sw_version": info.get("firmware_version"),
-        "connections": {("mac", info.get("mac_address"))},
+        "connections": {(CONNECTION_NETWORK_MAC, info.get("mac_address"))},
         "serial_number": info.get("serial_number"),
     }
 
@@ -44,12 +45,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class WaterLevelLowSensor(CoordinatorEntity, BinarySensorEntity):
     """Binary sensor: water level low."""
 
+    _attr_has_entity_name = True
+    _attr_name = "Water Level"
     _attr_device_class = "problem"
 
     def __init__(self, coordinator, device_id, name, device_info):
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_name = f"Dock Pro {name} Water Level"
         self._attr_unique_id = f"{DOMAIN}_{device_id}_water_low"
         self._attr_device_info = device_info
 
@@ -62,13 +64,14 @@ class WaterLevelLowSensor(CoordinatorEntity, BinarySensorEntity):
 class DeviceConnectedBinarySensor(CoordinatorEntity, BinarySensorEntity):
     """Binary sensor: device connectivity."""
 
+    _attr_has_entity_name = True
+    _attr_name = "Connected"
     _attr_device_class = "connectivity"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, device_id, name, device_info):
         super().__init__(coordinator)
         self._device_id = device_id
-        self._attr_name = f"Dock Pro {name} Connected"
         self._attr_unique_id = f"{DOMAIN}_{device_id}_connected"
         self._attr_device_info = device_info
 

@@ -35,5 +35,19 @@
       "already_configured": "Este dispositivo ya está configurado.",
       "reauth_successful": "La re-autenticación fue exitosa."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de SleepMe Dock Pro",
+        "description": "Ajusta con qué frecuencia Home Assistant consulta la API de SleepMe para este dispositivo. Valores más bajos son más reactivos pero consumen más de tu presupuesto de llamadas por minuto.",
+        "data": {
+          "scan_interval": "Intervalo de sondeo (segundos)"
+        }
+      }
+    },
+    "error": {
+      "invalid_scan_interval": "El intervalo de sondeo debe estar entre 10 y 300 segundos."
+    }
   }
 }

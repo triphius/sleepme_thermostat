@@ -16,10 +16,10 @@
         "title": "Seleccionar Dispositivo",
         "description": "Seleccione el dispositivo Dock Pro que desea configurar.",
         "data": {
-          "device_id": "ID del Dispositivo"
+          "device_id": "Cama / Dispositivo"
         },
         "data_description": {
-          "device_id": "Selecciona uno de los dispositivos detectados."
+          "device_id": "Elige el dispositivo por el nombre que le diste en la aplicación de SleepMe."
         }
       },
       "reauth_confirm": {

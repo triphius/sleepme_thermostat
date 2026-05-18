@@ -263,7 +263,7 @@ async def test_options_flow_happy_path(
 
     await hass.async_block_till_done()
     # Entry was reloaded; new coordinator has the new interval.
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data.coordinator
     assert coordinator.update_interval.total_seconds() == 60
 
 

@@ -17,8 +17,6 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
-
 TO_REDACT: set[str] = {
     "api_token",
     "mac_address",
@@ -32,11 +30,12 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Return a redacted diagnostic snapshot for a SleepMe config entry."""
-    entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
-    coordinator = entry_data.get("coordinator")
+    data = getattr(entry, "runtime_data", None)
 
     coordinator_payload: dict[str, Any] = {}
-    if coordinator is not None:
+    device_info: dict[str, Any] = {}
+    if data is not None:
+        coordinator = data.coordinator
         coordinator_payload = {
             "update_interval_seconds": (
                 coordinator.update_interval.total_seconds()
@@ -51,6 +50,7 @@ async def async_get_config_entry_diagnostics(
             ),
             "data": coordinator.data or {},
         }
+        device_info = dict(data.device_info)
 
     return {
         "entry": {
@@ -59,8 +59,6 @@ async def async_get_config_entry_diagnostics(
             "data": async_redact_data(dict(entry.data), TO_REDACT),
             "options": dict(entry.options),
         },
-        "device_info": async_redact_data(
-            dict(entry_data.get("device_info", {})), TO_REDACT
-        ),
+        "device_info": async_redact_data(device_info, TO_REDACT),
         "coordinator": async_redact_data(coordinator_payload, TO_REDACT),
     }

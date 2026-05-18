@@ -7,14 +7,10 @@ climate command path) translate them into HA-framework exceptions.
 
 from __future__ import annotations
 
-import logging
-
 from homeassistant.core import HomeAssistant
 
 from .helpers import round_half_up
 from .sleepme_api import SleepMeAPI
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class SleepMeClient:
@@ -28,7 +24,7 @@ class SleepMeClient:
         self.api_url = api_url
         self.token = token
         self.device_id = device_id
-        self.api = SleepMeAPI(hass, api_url, token)
+        self.api = SleepMeAPI.get_or_create(hass, api_url, token)
 
     async def set_temp_level(self, temp_c: float, retries: int = 2) -> dict:
         """Set the temperature level in Celsius."""

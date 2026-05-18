@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -19,8 +18,6 @@ from .helpers import build_device_info
 if TYPE_CHECKING:
     from .update_manager import SleepMeUpdateManager
 
-_LOGGER = logging.getLogger(__name__)
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -29,17 +26,18 @@ async def async_setup_entry(
 ) -> None:
     """Set up SleepMe Thermostat diagnostic sensors from a config entry."""
     device_id: str = entry.data["device_id"]
-    entry_data = hass.data[DOMAIN][entry.entry_id]
-    coordinator = entry_data["coordinator"]
-    device_info = build_device_info(device_id, entry.title, entry_data["device_info"])
+    data = entry.runtime_data
+    device_info = build_device_info(device_id, entry.title, data.device_info)
 
     async_add_entities(
         [
-            IPAddressSensor(coordinator, device_id, device_info),
-            LANAddressSensor(coordinator, device_id, device_info),
-            BrightnessLevelSensor(coordinator, device_id, device_info),
-            DisplayTemperatureUnitSensor(coordinator, device_id, device_info),
-            TimeZoneSensor(coordinator, device_id, device_info),
+            IPAddressSensor(data.coordinator, device_id, device_info),
+            LANAddressSensor(data.coordinator, device_id, device_info),
+            BrightnessLevelSensor(data.coordinator, device_id, device_info),
+            DisplayTemperatureUnitSensor(data.coordinator, device_id, device_info),
+            TimeZoneSensor(data.coordinator, device_id, device_info),
+            WaterLevelSensor(data.coordinator, device_id, device_info),
+            FirmwareVersionSensor(data.coordinator, device_id, device_info),
         ]
     )
 
@@ -187,3 +185,53 @@ class TimeZoneSensor(_SleepMeDiagnosticSensor):
     @property
     def native_value(self) -> str | int | None:
         return self.coordinator.data["control"].get("time_zone")
+
+
+class WaterLevelSensor(_SleepMeDiagnosticSensor):
+    """Continuous water-level percent (not the boolean low-level alert)."""
+
+    _attr_icon = "mdi:water-percent"
+    _attr_native_unit_of_measurement = "%"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        coordinator: SleepMeUpdateManager,
+        device_id: str,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(
+            coordinator,
+            device_id,
+            device_info,
+            suffix="water_level",
+            label="Water Level",
+        )
+
+    @property
+    def native_value(self) -> str | int | None:
+        return self.coordinator.data["status"].get("water_level")
+
+
+class FirmwareVersionSensor(_SleepMeDiagnosticSensor):
+    """Reports the current device firmware version. Useful for update notifications."""
+
+    _attr_icon = "mdi:chip"
+
+    def __init__(
+        self,
+        coordinator: SleepMeUpdateManager,
+        device_id: str,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(
+            coordinator,
+            device_id,
+            device_info,
+            suffix="firmware_version",
+            label="Firmware Version",
+        )
+
+    @property
+    def native_value(self) -> str | int | None:
+        return self.coordinator.data["about"].get("firmware_version")

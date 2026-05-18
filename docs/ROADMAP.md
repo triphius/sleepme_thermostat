@@ -163,6 +163,28 @@ This is where the historical latency problem actually gets fixed. **Detailed pla
 
 **Detailed plan: [`phase-5-polish.md`](./phase-5-polish.md).**
 
+---
+
+### Phase 6 — Post-v4.0.0 follow-up
+
+Synthesizes the P0 + top-P1 from a 5-perspective specialist audit of v4.0.0. Targets `v4.1.0`. **Detailed plan: [`phase-6-followup.md`](./phase-6-followup.md).**
+
+| Status | Item |
+|--------|------|
+| ⬜ | Per-account shared rate limiter (`SleepMeAPI.get_or_create` via `WeakValueDictionary`) |
+| ⬜ | Cap `Retry-After` at `BACKOFF_CEILING` |
+| ⬜ | Optimistic window self-extends when coordinator unsuccessful |
+| ⬜ | Migrate `hass.data[DOMAIN][entry.entry_id]` → `ConfigEntry.runtime_data` |
+| ⬜ | Rename in HACS to "SleepMe (Chilipad Dock Pro)" |
+| ⬜ | README: 3 screenshots + Supported devices section |
+| ⬜ | Device picker label tweak (EN + ES) |
+| ⬜ | New `sensor.*_water_level` (continuous %) |
+| ⬜ | New `sensor.*_firmware_version` |
+| ⬜ | Dead code removal across `sleepme_api.py`, `const.py`, platforms |
+| ⬜ | Kill dead `kwargs.get("temperature")` fallback |
+| ⬜ | Strengthen 2 test holes |
+| ⬜ | Bump `manifest.json` to `4.1.0`; tag `v4.1.0` |
+
 | Status | Item |
 |--------|------|
 | ⬜ | Add `diagnostics.py` for HA's "Download diagnostics" button |

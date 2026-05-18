@@ -133,3 +133,30 @@ async def test_update_failed_is_subclass_of_update_failed():
     )
 
     assert UpdateFailed is UpdateFailed  # sentinel — just ensures import worked
+
+
+async def test_async_update_data_happy_path(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """Happy path: _async_update_data returns the three-key dict."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    coord = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    assert coord.last_update_success is True
+    assert set(coord.data.keys()) == {"status", "control", "about"}
+    assert coord.data["status"]["water_temperature_c"] == 22.0
+
+
+async def test_value_error_maps_to_update_failed(
+    hass: HomeAssistant, mock_failing_client: AsyncMock
+) -> None:
+    """ValueError from the client (unexpected response shape) -> SETUP_RETRY."""
+    mock_failing_client.side_effect = ValueError("unexpected response: 'foo'")
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.SETUP_RETRY

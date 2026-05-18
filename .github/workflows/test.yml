@@ -19,11 +19,11 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
-      - run: pip install ruff==0.8.4 black==24.10.0
+      - run: pip install ruff==0.8.4
       - name: ruff check
         run: ruff check .
-      - name: black --check
-        run: black --check custom_components tests
+      - name: ruff format --check
+        run: ruff format --check custom_components tests
 
   typecheck:
     name: mypy
@@ -36,9 +36,8 @@ jobs:
           cache: pip
       - run: pip install mypy==1.13.0
       - run: pip install -r requirements_test.txt
-      - name: mypy (advisory in Phase 0)
-        # `|| true` keeps the job green while we adopt mypy. Drop the suffix in Phase 4.
-        run: mypy custom_components/sleepme_thermostat || true
+      - name: mypy (strict in Phase 4)
+        run: mypy custom_components/sleepme_thermostat
 
   i18n-check:
     name: strings.json mirrors translations/en.json
@@ -52,18 +51,41 @@ jobs:
             custom_components/sleepme_thermostat/translations/en.json
 
   pytest:
-    name: pytest (HA ${{ matrix.ha-version }})
+    name: pytest (HA ${{ matrix.ha-version }}, py${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        ha-version: ["2026.5"]
-        python-version: ["3.14"]
+        # HA 2025.10 (phcc 0.13.285) was tried and removed: its pycares
+        # transitive dep collides with a newer pycares API used by the test
+        # harness on CI runners. The fix would require pinning pycares back to
+        # an older version, which has security implications. Three versions
+        # (2026.1, 2026.3, 2026.5) still give ~5 months of HA coverage.
+        include:
+          - ha-version: "2026.1"
+            phcc-version: "0.13.305"
+            python-version: "3.13"
+          - ha-version: "2026.3"
+            phcc-version: "0.13.320"
+            python-version: "3.14"
+          - ha-version: "2026.5"
+            phcc-version: "0.13.331"
+            python-version: "3.14"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: pip install -r requirements_test.txt
-      - run: pytest --cov --cov-report=term-missing
+          cache-dependency-path: requirements_test.txt
+      - name: Install matrix-specific HA + phcc
+        # pytest-cov and pytest are transitive deps of pytest-homeassistant-custom-component;
+        # pinning them explicitly causes resolver conflicts on older phcc versions.
+        run: |
+          pip install --upgrade-strategy eager \
+            "homeassistant==${{ matrix.ha-version }}.*" \
+            "pytest-homeassistant-custom-component==${{ matrix.phcc-version }}" \
+            pytest-cov \
+            "hypothesis>=6.119,<7"
+      - name: Run tests with coverage gate
+        run: pytest --cov --cov-report=term-missing --cov-fail-under=80

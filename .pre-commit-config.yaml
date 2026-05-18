@@ -21,14 +21,6 @@ repos:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
-        # ruff-format stays scoped to tests/ until Phase 4 migrates everything
-        # from black -> ruff format. Avoids black/ruff format ping-pong.
-        files: ^tests/
-
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
-    hooks:
-      - id: black
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0

@@ -77,11 +77,13 @@ jobs:
           cache: pip
           cache-dependency-path: requirements_test.txt
       - name: Install matrix-specific HA + phcc
+        # pytest-cov and pytest are transitive deps of pytest-homeassistant-custom-component;
+        # pinning them explicitly causes resolver conflicts on older phcc versions.
         run: |
           pip install --upgrade-strategy eager \
             "homeassistant==${{ matrix.ha-version }}.*" \
             "pytest-homeassistant-custom-component==${{ matrix.phcc-version }}" \
-            "pytest-cov==7.1.0" \
+            pytest-cov \
             "hypothesis>=6.119,<7"
       - name: Run tests with coverage gate
         run: pytest --cov --cov-report=term-missing --cov-fail-under=80

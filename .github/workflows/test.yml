@@ -56,10 +56,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # HA 2025.10 (phcc 0.13.285) was tried and removed: its pycares
+        # transitive dep collides with a newer pycares API used by the test
+        # harness on CI runners. The fix would require pinning pycares back to
+        # an older version, which has security implications. Three versions
+        # (2026.1, 2026.3, 2026.5) still give ~5 months of HA coverage.
         include:
-          - ha-version: "2025.10"
-            phcc-version: "0.13.285"
-            python-version: "3.13"
           - ha-version: "2026.1"
             phcc-version: "0.13.305"
             python-version: "3.13"

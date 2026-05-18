@@ -1,57 +1,117 @@
 # SleepMe Dock Pro Integration
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Component-%2341BDF5.svg?style=for-the-badge)](https://www.home-assistant.io/)
-[![hacs][hacsbadge]](https://github.com/hacs/default)
+[![HACS Custom Repository](https://img.shields.io/badge/HACS-Custom_Repository-41BDF5.svg)](https://github.com/hacs/default)
+[![Quality Scale](https://img.shields.io/badge/Quality_Scale-silver-c0c0c0.svg)](https://www.home-assistant.io/docs/quality_scale/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Test](https://github.com/rsampayo/sleepme_thermostat/actions/workflows/test.yml/badge.svg)](https://github.com/rsampayo/sleepme_thermostat/actions/workflows/test.yml)
+[![Validate HACS](https://github.com/rsampayo/sleepme_thermostat/actions/workflows/validate.yml/badge.svg)](https://github.com/rsampayo/sleepme_thermostat/actions/workflows/validate.yml)
+[![CodeQL](https://github.com/rsampayo/sleepme_thermostat/actions/workflows/codeql.yml/badge.svg)](https://github.com/rsampayo/sleepme_thermostat/actions/workflows/codeql.yml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-[hacsbadge]: https://img.shields.io/badge/HACS-Custom_Repository-41BDF5.svg?style=for-the-badge
+> A Home Assistant custom integration for the **SleepMe Chilipad Dock Pro** bed-cooling system. Climate entity, water-level alert, connectivity sensor, and five diagnostic sensors — all backed by the [sleep.me developer API](https://docs.developer.sleep.me/api/).
 
-## Overview
+## Features
 
-The **SleepMe Dock Pro Integration** is a custom component for Home Assistant, designed to provide seamless control and automation for the Chilipad Dock Pro Bed Cooling System. This integration allows you to manage your sleep environment with precise temperature controls and real-time monitoring of your device's water level, ensuring optimal performance and comfort throughout the night.
+- Set bed temperature (13–48°C, half-degree steps, plus `Max Cool` / `Max Heat` presets per API contract).
+- Turn the device on/off via HVAC mode.
+- Water-level-low binary sensor for proactive alerts.
+- Connectivity binary sensor.
+- Five diagnostic sensors: IP, LAN, brightness, display unit, time zone.
+- Configurable polling interval (10–300 s).
+- Reauth flow when the API token rotates — no integration removal needed.
+- Multi-device support: configure multiple Dock Pros under one HA install.
+- Long-term statistics for brightness.
 
-## About the Chilipad Dock Pro Bed Cooling System
+## Requirements
 
-The [Chilipad Dock Pro](https://sleep.me/) is a cutting-edge bed cooling system that regulates your bed's temperature between 55°F and 115°F, ensuring you stay comfortable all night long, regardless of room temperature or your body’s heat load. The system uses water circulation to maintain your desired temperature, making it an effective solution for hot sleepers or those who want a cooler sleep environment.
+- Home Assistant Core **2026.1** or newer (tested on 2026.1, 2026.3, 2026.5).
+- A sleep.me account with at least one Dock Pro device.
+- A developer API token (generated in the sleep.me account portal, free).
 
 ## Installation
 
-### HACS Installation (Custom Repository)
+### HACS (recommended)
 
-1. Add the repository to HACS:
-   - Go to HACS in Home Assistant.
-   - Click the three dots in the top right corner and select "Custom repositories."
-   - Enter the repository URL: `https://github.com/rsampayo/sleepme_thermostat` and select "Integration."
-   - Click "Add."
-2. Install the integration from the HACS store.
+1. HACS → ⋮ → *Custom repositories* → add `https://github.com/rsampayo/sleepme_thermostat`, category *Integration*.
+2. Install **SleepMe Thermostat**.
 3. Restart Home Assistant.
-4. Add the integration via the Home Assistant UI.
+4. *Settings → Devices & Services → Add Integration → SleepMe Thermostat*.
 
-### Manual Installation
+### Manual
 
-1. Download the repository contents.
-2. Copy the `sleepme_thermostat` folder to your Home Assistant's `custom_components` directory.
+1. Download the repository.
+2. Copy `custom_components/sleepme_thermostat/` into `<config>/custom_components/`.
 3. Restart Home Assistant.
-4. Add the integration via the Home Assistant UI.
+4. Add the integration via the UI.
 
 ## Configuration
 
-1. Before configuring the integration, you need to obtain an authentication token from [Sleep.me](https://sleep.me/):
-   - Log in to your account on the Sleep.me website.
-   - Navigate to your account details.
-   - Go to the "Developer API" section.
-   - Create a new token.
+1. Generate an API token: sleep.me website → account → *Developer API* → *Create new token*.
+2. *Settings → Devices & Services → Add Integration → SleepMe Thermostat*.
+3. Paste the token; pick the device from the discovered list.
 
-2. After obtaining the token, navigate to the integrations page in Home Assistant.
-3. Click on "Add Integration" and search for "SleepMe Thermostat."
-4. Follow the on-screen instructions to complete the setup, where you'll need to enter the token you generated.
+To tune the polling cadence: *Settings → Devices & Services → SleepMe Thermostat → Configure → Poll interval*.
 
-## Usage
+## Entities created
 
-Once configured, you can use the SleepMe thermostat entity in your Home Assistant automations, scripts, and dashboards. The binary sensor provides real-time information on the water level in your Dock Pro, allowing you to automate alerts or actions when the water is low. Additionally, you can use this integration to adjust the temperature settings, either via the Home Assistant UI or through automation, to ensure your bed remains at the optimal temperature throughout the night.
+| Platform       | Entity                       | Notes                              |
+|----------------|------------------------------|------------------------------------|
+| climate        | Dock Pro *{name}*            | Target temp, on/off, Max Cool/Heat |
+| binary_sensor  | Water Level                  | Device class: PROBLEM              |
+| binary_sensor  | Connected                    | Device class: CONNECTIVITY         |
+| sensor         | IP Address                   | Diagnostic                         |
+| sensor         | LAN Address                  | Diagnostic                         |
+| sensor         | Brightness Level (%)         | Diagnostic, in long-term statistics |
+| sensor         | Display Temperature Unit     | Diagnostic                         |
+| sensor         | Time Zone                    | Diagnostic                         |
 
-## License
+## Example automation: cool the bed at bedtime
 
-This project is licensed under the [MIT License](LICENSE).
+```yaml
+automation:
+  - alias: SleepMe — cool bed at bedtime
+    trigger:
+      - platform: time
+        at: "22:30:00"
+    action:
+      - service: climate.set_hvac_mode
+        target:
+          entity_id: climate.dock_pro_ramon
+        data:
+          hvac_mode: auto
+      - service: climate.set_temperature
+        target:
+          entity_id: climate.dock_pro_ramon
+        data:
+          temperature: 18
+```
+
+## Troubleshooting
+
+**"API token rejected" / reauth banner keeps appearing.**
+Tokens can be rotated or revoked in the sleep.me developer portal. When that happens, the integration triggers a reauth prompt on *Settings → Devices & Services*. Click *Reauthenticate*, paste a fresh token, done. No HA restart needed.
+
+**"Cannot connect to SleepMe API."**
+The sleep.me API is aggressively rate-limited. Transient failures are normal — the integration honors `Retry-After` and recovers on the next poll. If the entity stays unavailable for more than a few minutes, check the log under `custom_components.sleepme_thermostat`.
+
+**Polling too aggressive / not aggressive enough.**
+The default poll interval is **20 seconds**. To change it: *Settings → Devices & Services → SleepMe Thermostat → Configure*. Acceptable range 10–300 s. Lower values feel snappier but consume more of your per-minute API budget.
+
+**Sharing a bug report.**
+Open the device page in *Settings → Devices & Services*, click ⋮, choose *Download diagnostics*. The downloaded JSON has your API token (and MAC, IP, serial) redacted. Attach it to a GitHub issue.
+
+**Adjusting log verbosity.**
+The integration registers one logger: `custom_components.sleepme_thermostat`. Use *Settings → System → Logs* or the `logger.set_level` service to bump it to debug temporarily.
+
+## Tested against
+
+| HA Core   | Python | Status |
+|-----------|--------|--------|
+| 2026.1.x  | 3.13   | tested |
+| 2026.3.x  | 3.14   | tested |
+| 2026.5.x  | 3.14   | tested |
+
+Older HA versions may work but are not in the CI matrix.
 
 ## Contributing
 
@@ -59,10 +119,6 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 When editing translations, edit `custom_components/sleepme_thermostat/strings.json` first (the source of truth), then copy verbatim to `custom_components/sleepme_thermostat/translations/en.json`. CI fails if the two files diverge. Other language files (e.g. `es.json`) are hand-maintained from `strings.json`.
 
-## Support
+## License
 
-If you encounter any issues or have questions, feel free to open an issue in the [GitHub repository](https://github.com/rsampayo/sleepme_thermostat).
-
-## Acknowledgments
-
-- Thanks to the Home Assistant community for their support and resources.
+[MIT](LICENSE).

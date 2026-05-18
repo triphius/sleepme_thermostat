@@ -161,6 +161,8 @@ This is where the historical latency problem actually gets fixed. **Detailed pla
 
 ### Phase 5 — Polish
 
+**Detailed plan: [`phase-5-polish.md`](./phase-5-polish.md).**
+
 | Status | Item |
 |--------|------|
 | ⬜ | Add `diagnostics.py` for HA's "Download diagnostics" button |

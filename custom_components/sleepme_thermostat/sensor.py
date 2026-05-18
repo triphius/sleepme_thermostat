@@ -29,18 +29,17 @@ async def async_setup_entry(
 ) -> None:
     """Set up SleepMe Thermostat diagnostic sensors from a config entry."""
     device_id: str = entry.data["device_id"]
-    name: str = entry.data["name"]
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator = entry_data["coordinator"]
-    device_info = build_device_info(device_id, name, entry_data["device_info"])
+    device_info = build_device_info(device_id, entry.title, entry_data["device_info"])
 
     async_add_entities(
         [
-            IPAddressSensor(coordinator, device_id, name, device_info),
-            LANAddressSensor(coordinator, device_id, name, device_info),
-            BrightnessLevelSensor(coordinator, device_id, name, device_info),
-            DisplayTemperatureUnitSensor(coordinator, device_id, name, device_info),
-            TimeZoneSensor(coordinator, device_id, name, device_info),
+            IPAddressSensor(coordinator, device_id, device_info),
+            LANAddressSensor(coordinator, device_id, device_info),
+            BrightnessLevelSensor(coordinator, device_id, device_info),
+            DisplayTemperatureUnitSensor(coordinator, device_id, device_info),
+            TimeZoneSensor(coordinator, device_id, device_info),
         ]
     )
 
@@ -55,7 +54,6 @@ class _SleepMeDiagnosticSensor(CoordinatorEntity, SensorEntity):
         self,
         coordinator: SleepMeUpdateManager,
         device_id: str,
-        name: str,
         device_info: DeviceInfo,
         *,
         suffix: str,
@@ -77,13 +75,11 @@ class IPAddressSensor(_SleepMeDiagnosticSensor):
         self,
         coordinator: SleepMeUpdateManager,
         device_id: str,
-        name: str,
         device_info: DeviceInfo,
     ) -> None:
         super().__init__(
             coordinator,
             device_id,
-            name,
             device_info,
             suffix="ip_address",
             label="IP Address",
@@ -103,13 +99,11 @@ class LANAddressSensor(_SleepMeDiagnosticSensor):
         self,
         coordinator: SleepMeUpdateManager,
         device_id: str,
-        name: str,
         device_info: DeviceInfo,
     ) -> None:
         super().__init__(
             coordinator,
             device_id,
-            name,
             device_info,
             suffix="lan_address",
             label="LAN Address",
@@ -131,13 +125,11 @@ class BrightnessLevelSensor(_SleepMeDiagnosticSensor):
         self,
         coordinator: SleepMeUpdateManager,
         device_id: str,
-        name: str,
         device_info: DeviceInfo,
     ) -> None:
         super().__init__(
             coordinator,
             device_id,
-            name,
             device_info,
             suffix="brightness_level",
             label="Brightness Level",
@@ -157,13 +149,11 @@ class DisplayTemperatureUnitSensor(_SleepMeDiagnosticSensor):
         self,
         coordinator: SleepMeUpdateManager,
         device_id: str,
-        name: str,
         device_info: DeviceInfo,
     ) -> None:
         super().__init__(
             coordinator,
             device_id,
-            name,
             device_info,
             suffix="display_temperature_unit",
             label="Display Temperature Unit",
@@ -184,13 +174,11 @@ class TimeZoneSensor(_SleepMeDiagnosticSensor):
         self,
         coordinator: SleepMeUpdateManager,
         device_id: str,
-        name: str,
         device_info: DeviceInfo,
     ) -> None:
         super().__init__(
             coordinator,
             device_id,
-            name,
             device_info,
             suffix="time_zone",
             label="Time Zone",

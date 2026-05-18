@@ -32,7 +32,7 @@ _LOGGER = logging.getLogger(__name__)
 class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SleepMe Thermostat."""
 
-    VERSION = 3
+    VERSION = 4
 
     def __init__(self) -> None:
         self.api_token: str = ""
@@ -109,10 +109,8 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title=f"Dock Pro {name}",
                     data={
-                        "api_url": API_URL,
                         "api_token": self.api_token,
                         "device_id": device_id,
-                        "name": name,
                         "firmware_version": device_status.get("about", {}).get(
                             "firmware_version"
                         ),

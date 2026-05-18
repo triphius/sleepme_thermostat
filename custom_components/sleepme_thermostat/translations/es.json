@@ -7,6 +7,9 @@
         "description": "Por favor, ingrese su token de API.",
         "data": {
           "api_token": "Token de API"
+        },
+        "data_description": {
+          "api_token": "Ingresa el token de API proporcionado por SleepMe."
         }
       },
       "select_device": {
@@ -14,6 +17,9 @@
         "description": "Seleccione el dispositivo Dock Pro que desea configurar.",
         "data": {
           "device_id": "ID del Dispositivo"
+        },
+        "data_description": {
+          "device_id": "Selecciona uno de los dispositivos detectados."
         }
       },
       "reauth_confirm": {
@@ -21,6 +27,9 @@
         "description": "Su token de API de SleepMe ya no es válido. Ingrese un nuevo token para volver a conectarse.",
         "data": {
           "api_token": "Token de API"
+        },
+        "data_description": {
+          "api_token": "Pega un token nuevo generado en la sección Developer API de SleepMe."
         }
       }
     },

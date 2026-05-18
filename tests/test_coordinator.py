@@ -144,7 +144,7 @@ async def test_async_update_data_happy_path(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    coord = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coord = entry.runtime_data.coordinator
     assert coord.last_update_success is True
     assert set(coord.data.keys()) == {"status", "control", "about"}
     assert coord.data["status"]["water_temperature_c"] == 22.0

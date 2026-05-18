@@ -147,6 +147,21 @@ async def test_compute_backoff_caps_at_ceiling() -> None:
     assert SleepMeAPI._compute_backoff(30, 11, resp) == 600
 
 
+async def test_compute_backoff_caps_huge_retry_after(hass: HomeAssistant) -> None:
+    """Server Retry-After is bounded by BACKOFF_CEILING (no 24h parking)."""
+    resp = _http_response(429, headers={"Retry-After": "86400"})  # 1 day
+    assert SleepMeAPI._compute_backoff(30, 1, resp) == 600
+
+
+async def test_get_or_create_returns_shared_instance(hass: HomeAssistant) -> None:
+    """Same (api_url, token) returns the same SleepMeAPI; different token does not."""
+    a = SleepMeAPI.get_or_create(hass, "https://api.test/v1", "token-A")
+    b = SleepMeAPI.get_or_create(hass, "https://api.test/v1", "token-A")
+    c = SleepMeAPI.get_or_create(hass, "https://api.test/v1", "token-B")
+    assert a is b
+    assert a is not c
+
+
 # ---- Hypothesis property tests ---------------------------------------------
 
 from hypothesis import given  # noqa: E402

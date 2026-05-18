@@ -22,7 +22,12 @@ def client(hass: HomeAssistant) -> Generator[SleepMeClient]:
         "custom_components.sleepme_thermostat.sleepme.SleepMeAPI",
         autospec=True,
     ) as mock_api_cls:
-        mock_api_cls.return_value.api_request = AsyncMock()
+        # SleepMeClient now resolves transport via SleepMeAPI.get_or_create.
+        # autospec'd classmethods return mock_api_cls.<method>.return_value, NOT
+        # mock_api_cls.return_value. Wire both so callers find the same instance.
+        instance = mock_api_cls.return_value
+        instance.api_request = AsyncMock()
+        mock_api_cls.get_or_create.return_value = instance
         c = SleepMeClient(hass, "https://api.test/v1", "tok", "dev-1")
         yield c
 

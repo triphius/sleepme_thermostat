@@ -158,8 +158,9 @@ async def test_set_temperature_connection_error_raises_ha_error(
 async def test_set_hvac_mode_optimistic(
     hass: HomeAssistant, mock_sleepme_client: AsyncMock
 ) -> None:
-    """async_set_hvac_mode writes optimistic state."""
+    """async_set_hvac_mode writes optimistic state AND fires the right PATCH."""
     await _setup(hass)
+    mock_sleepme_client.set_device_status.reset_mock()
     state = hass.states.get(ENTITY_ID)
     assert state.state == HVACMode.OFF  # mock fixture has standby
 
@@ -171,6 +172,7 @@ async def test_set_hvac_mode_optimistic(
     )
     await hass.async_block_till_done()
 
+    mock_sleepme_client.set_device_status.assert_called_once_with("active")
     state = hass.states.get(ENTITY_ID)
     assert state.state == HVACMode.AUTO
 
@@ -180,6 +182,8 @@ async def test_preset_mode_max_cool(
 ) -> None:
     """Setting MAX_COOL preset PATCHes the -1 sentinel and updates preset_mode."""
     await _setup(hass)
+    mock_sleepme_client.set_temp_level.reset_mock()
+    mock_sleepme_client.set_device_status.reset_mock()
 
     # Ramon is currently OFF — preset switch should also turn AUTO on.
     await hass.services.async_call(
@@ -189,6 +193,10 @@ async def test_preset_mode_max_cool(
         blocking=True,
     )
     await hass.async_block_till_done()
+
+    # Engaged HVAC AUTO (was OFF) AND patched the -1 sentinel — both must fire.
+    mock_sleepme_client.set_device_status.assert_called_once_with("active")
+    mock_sleepme_client.set_temp_level.assert_called_once_with(-1)
 
     state = hass.states.get(ENTITY_ID)
     # Optimistic temp == sentinel; preset_mode derives from that.
@@ -286,7 +294,7 @@ async def test_available_false_when_coordinator_unsuccessful(
 ) -> None:
     """available returns False when coordinator.last_update_success is False."""
     entry = await _setup(hass)
-    coord = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coord = entry.runtime_data.coordinator
     coord.last_update_success = False
     coord.async_update_listeners()
     await hass.async_block_till_done()
@@ -299,7 +307,7 @@ async def test_available_false_when_disconnected(
 ) -> None:
     """available returns False when coordinator reports is_connected=False."""
     entry = await _setup(hass)
-    coord = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coord = entry.runtime_data.coordinator
     coord.data["status"]["is_connected"] = False
     coord.async_update_listeners()
     await hass.async_block_till_done()
@@ -320,7 +328,7 @@ async def test_optimistic_window_expires(
 
     from homeassistant.util import dt as dt_util
 
-    await _setup(hass)
+    entry = await _setup(hass)
     await hass.services.async_call(
         CLIMATE_DOMAIN,
         SERVICE_SET_TEMPERATURE,
@@ -338,7 +346,10 @@ async def test_optimistic_window_expires(
         return_value=future,
     ):
         # Hitting the coordinator's listeners triggers a state re-write.
-        coord = hass.data[DOMAIN][_entry().entry_id]["coordinator"]
+        # Phase 6: optimistic holds while coordinator is unsuccessful, so the
+        # snap-back only fires when last_update_success is True.
+        coord = entry.runtime_data.coordinator
+        coord.last_update_success = True
         coord.async_update_listeners()
         await hass.async_block_till_done()
 

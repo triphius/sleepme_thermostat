@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.components.binary_sensor import (
@@ -22,8 +21,6 @@ from .helpers import build_device_info
 if TYPE_CHECKING:
     from .update_manager import SleepMeUpdateManager
 
-_LOGGER = logging.getLogger(__name__)
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -32,14 +29,13 @@ async def async_setup_entry(
 ) -> None:
     """Set up SleepMe Thermostat binary sensors from a config entry."""
     device_id: str = entry.data["device_id"]
-    entry_data = hass.data[DOMAIN][entry.entry_id]
-    coordinator = entry_data["coordinator"]
-    device_info = build_device_info(device_id, entry.title, entry_data["device_info"])
+    data = entry.runtime_data
+    device_info = build_device_info(device_id, entry.title, data.device_info)
 
     async_add_entities(
         [
-            WaterLevelLowSensor(coordinator, device_id, device_info),
-            DeviceConnectedBinarySensor(coordinator, device_id, device_info),
+            WaterLevelLowSensor(data.coordinator, device_id, device_info),
+            DeviceConnectedBinarySensor(data.coordinator, device_id, device_info),
         ]
     )
 

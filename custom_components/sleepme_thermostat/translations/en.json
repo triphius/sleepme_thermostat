@@ -16,10 +16,10 @@
         "title": "Select Dock Pro Device",
         "description": "Select the Dock Pro device you want to add.",
         "data": {
-          "device_id": "Device"
+          "device_id": "Bed / Device"
         },
         "data_description": {
-          "device_id": "Choose one of the devices discovered."
+          "device_id": "Pick the device by the name you set in the SleepMe app."
         }
       },
       "reauth_confirm": {

@@ -71,9 +71,8 @@ async def async_setup_entry(
 ) -> None:
     """Set up SleepMe Thermostat climate entity from a config entry."""
     device_id: str = entry.data["device_id"]
-    entry_data = hass.data[DOMAIN][entry.entry_id]
-    coordinator = entry_data["coordinator"]
-    device_info = build_device_info(device_id, entry.title, entry_data["device_info"])
+    data = entry.runtime_data
+    device_info = build_device_info(device_id, entry.title, data.device_info)
 
     _LOGGER.debug(
         "[Device %s] Setting up SleepMeThermostat entity (%s)",
@@ -81,7 +80,7 @@ async def async_setup_entry(
         entry.title,
     )
     async_add_entities(
-        [SleepMeThermostat(coordinator, entry_data["client"], device_id, device_info)]
+        [SleepMeThermostat(data.coordinator, data.client, device_id, device_info)]
     )
 
 
@@ -164,8 +163,7 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
         """Set new target temperature."""
         target_temp = kwargs.get(ATTR_TEMPERATURE)
         if target_temp is None:
-            target_temp = kwargs.get("temperature")
-        if target_temp is None:
+            # ATTR_TEMPERATURE == "temperature" — HA's service schema guarantees this.
             raise ServiceValidationError(
                 "Temperature is required",
                 translation_domain=DOMAIN,
@@ -289,6 +287,10 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
             self._optimistic_target_temp_until is not None
             and now > self._optimistic_target_temp_until
         ):
+            # If the coordinator hasn't reconciled successfully yet, hold the
+            # optimistic value rather than snap back to a stale server read.
+            if not self.coordinator.last_update_success:
+                return self._optimistic_target_temp
             self._optimistic_target_temp = None
             self._optimistic_target_temp_until = None
             return None
@@ -308,6 +310,9 @@ class SleepMeThermostat(CoordinatorEntity, ClimateEntity):
             self._optimistic_status_until is not None
             and now > self._optimistic_status_until
         ):
+            # See _effective_optimistic_temp for rationale.
+            if not self.coordinator.last_update_success:
+                return self._optimistic_status
             self._optimistic_status = None
             self._optimistic_status_until = None
             return server_value

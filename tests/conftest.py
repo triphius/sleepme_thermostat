@@ -30,6 +30,7 @@ def mock_sleepme_client() -> Generator[AsyncMock]:
             "water_temperature_c": 22.0,
             "is_water_low": False,
             "is_connected": True,
+            "water_level": 78,
         },
         "control": {
             "set_temperature_c": 22.0,

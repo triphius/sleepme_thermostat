@@ -49,8 +49,8 @@ async def test_setup_entry_loads(
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
-    assert entry.entry_id in hass.data[DOMAIN]
-    assert "coordinator" in hass.data[DOMAIN][entry.entry_id]
+    assert entry.runtime_data is not None
+    assert entry.runtime_data.coordinator is not None
 
 
 async def test_unload_entry(
@@ -66,7 +66,7 @@ async def test_unload_entry(
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.NOT_LOADED
-    assert entry.entry_id not in hass.data[DOMAIN]
+    # runtime_data is automatically detached by HA on unload.
 
 
 async def test_multi_entry_isolation(
@@ -88,21 +88,19 @@ async def test_multi_entry_isolation(
 
     assert entry_a.state is ConfigEntryState.LOADED
     assert entry_b.state is ConfigEntryState.LOADED
-    assert "entry_a" in hass.data[DOMAIN]
-    assert "entry_b" in hass.data[DOMAIN]
+    # Phase 6: runtime_data replaces hass.data[DOMAIN][entry.entry_id].
+    assert entry_a.runtime_data is not None
+    assert entry_b.runtime_data is not None
     # Distinct coordinator instances per entry.
-    assert (
-        hass.data[DOMAIN]["entry_a"]["coordinator"]
-        is not hass.data[DOMAIN]["entry_b"]["coordinator"]
-    )
+    assert entry_a.runtime_data.coordinator is not entry_b.runtime_data.coordinator
 
     # Unload one; the other survives.
     assert await hass.config_entries.async_unload(entry_a.entry_id)
     await hass.async_block_till_done()
     assert entry_a.state is ConfigEntryState.NOT_LOADED
     assert entry_b.state is ConfigEntryState.LOADED
-    assert "entry_a" not in hass.data[DOMAIN]
-    assert "entry_b" in hass.data[DOMAIN]
+    # entry_b still has runtime_data.
+    assert entry_b.runtime_data is not None
 
 
 async def test_migrate_entry_v3_to_v4(

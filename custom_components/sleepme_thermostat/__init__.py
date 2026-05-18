@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -25,13 +26,31 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = ["climate", "binary_sensor", "sensor"]
 
 
+@dataclass(slots=True)
+class SleepMeData:
+    """Per-entry runtime state.
+
+    Held on `entry.runtime_data` (HA 2024.11+); HA manages lifetime so we
+    don't manually populate / clear hass.data anymore.
+    """
+
+    client: SleepMeClient
+    coordinator: SleepMeUpdateManager
+    # Raw fields from entry.data; helpers.build_device_info() maps them into
+    # HA's DeviceInfo TypedDict shape at platform-setup time.
+    device_info: dict
+
+
+# Typed alias for downstream platforms to use as the ConfigEntry parameter type.
+type SleepMeConfigEntry = ConfigEntry[SleepMeData]
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the SleepMe Thermostat component (YAML hook — unused)."""
-    hass.data.setdefault(DOMAIN, {})
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: SleepMeConfigEntry) -> bool:
     """Set up SleepMe Thermostat from a config entry."""
     api_token = entry.data.get("api_token")
     device_id = entry.data.get("device_id")
@@ -50,16 +69,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # ConfigEntryNotReady (-> HA retries setup) without further plumbing.
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        "client": client,
-        "coordinator": coordinator,
-        "device_info": {
+    entry.runtime_data = SleepMeData(
+        client=client,
+        coordinator=coordinator,
+        device_info={
             "firmware_version": entry.data.get("firmware_version"),
             "mac_address": entry.data.get("mac_address"),
             "model": entry.data.get("model"),
             "serial_number": entry.data.get("serial_number"),
         },
-    }
+    )
 
     # Reload on options change. async_on_unload registers the unsubscribe so
     # it fires automatically during async_unload_entry.
@@ -102,9 +121,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: SleepMeConfigEntry) -> bool:
     """Unload a config entry."""
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unloaded:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
-    return unloaded
+    # HA clears entry.runtime_data automatically on successful unload.
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

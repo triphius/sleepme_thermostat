@@ -26,6 +26,7 @@ import time
 from collections import deque
 from email.utils import parsedate_to_datetime
 from typing import Any
+from weakref import WeakValueDictionary
 
 import httpx
 from homeassistant.core import HomeAssistant
@@ -61,6 +62,37 @@ class SleepMeConnectionError(SleepMeAPIError):
 
 
 class SleepMeAPI:
+    """Per-(api_url, token) transport instance.
+
+    The class-level `_instances` cache dedupes SleepMeAPI objects by (api_url,
+    token). All SleepMeClient instances using the same token share one deque
+    and one lock — so the local rate limiter actually maps to the per-account
+    server-side budget instead of multiplying by N config entries.
+
+    `_instances` is a WeakValueDictionary: as soon as the last SleepMeClient
+    referencing a given transport is GC'd (e.g. all entries with that token
+    are unloaded), the cached entry disappears.
+    """
+
+    _instances: WeakValueDictionary[tuple[str, str], SleepMeAPI] = WeakValueDictionary()
+
+    @classmethod
+    def get_or_create(
+        cls,
+        hass: HomeAssistant,
+        api_url: str,
+        token: str,
+        max_requests_per_minute: int = MAX_REQUESTS_PER_MINUTE,
+    ) -> SleepMeAPI:
+        """Return the shared transport for this (api_url, token) pair."""
+        key = (api_url, token)
+        existing = cls._instances.get(key)
+        if existing is not None:
+            return existing
+        new = cls(hass, api_url, token, max_requests_per_minute)
+        cls._instances[key] = new
+        return new
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -81,9 +113,7 @@ class SleepMeAPI:
         method: str,
         endpoint: str,
         *,
-        params: dict | None = None,
         data: dict | None = None,
-        input_headers: dict | None = None,
         retries: int = DEFAULT_RETRIES,
     ) -> Any:
         """Send one request with retry-on-transient-error.
@@ -98,13 +128,7 @@ class SleepMeAPI:
         while True:
             await self._enforce_local_rate_limit(method, endpoint)
             try:
-                return await self._perform_request(
-                    method,
-                    endpoint,
-                    params=params,
-                    data=data,
-                    input_headers=input_headers,
-                )
+                return await self._perform_request(method, endpoint, data=data)
             except httpx.HTTPStatusError as err:
                 status = err.response.status_code
                 if status in (401, 403):
@@ -199,26 +223,15 @@ class SleepMeAPI:
         method: str,
         endpoint: str,
         *,
-        params: dict | None,
         data: dict | None,
-        input_headers: dict | None,
     ) -> Any:
-        headers = dict(input_headers or {})
-        headers["Authorization"] = f"Bearer {self.token}"
-        _LOGGER.debug(
-            "%s %s/%s params=%s data=%s",
-            method,
-            self.api_url,
-            endpoint,
-            params,
-            data,
-        )
+        headers = {"Authorization": f"Bearer {self.token}"}
+        _LOGGER.debug("%s %s/%s data=%s", method, self.api_url, endpoint, data)
         response = await self.client.request(
             method,
             f"{self.api_url}/{endpoint}",
             headers=headers,
             json=data,
-            params=params,
         )
         response.raise_for_status()
         return response.json()
@@ -227,17 +240,26 @@ class SleepMeAPI:
     def _compute_backoff(base: int, attempt: int, response: httpx.Response) -> float:
         """Resolve backoff seconds.
 
-        Honors Retry-After (integer seconds or HTTP-date). Falls back to
-        base * 2**(attempt-1), capped at BACKOFF_CEILING.
+        Honors Retry-After (integer seconds or HTTP-date), capped at
+        BACKOFF_CEILING to bound worst-case downtime when the server returns
+        an extreme value. Falls back to base * 2**(attempt-1), also capped.
         """
+
+        def _cap(v: float) -> float:
+            if v > BACKOFF_CEILING:
+                _LOGGER.warning(
+                    "Capping Retry-After %.0fs to ceiling %ds", v, BACKOFF_CEILING
+                )
+            return min(v, float(BACKOFF_CEILING))
+
         ra = response.headers.get("Retry-After")
         if ra:
             try:
-                return float(int(ra))
+                return _cap(float(int(ra)))
             except ValueError:
                 try:
                     target = parsedate_to_datetime(ra).timestamp()
-                    return max(0.0, target - time.time())
+                    return _cap(max(0.0, target - time.time()))
                 except (TypeError, ValueError):
                     _LOGGER.debug("Unparsable Retry-After: %r", ra)
         return float(min(base * (2 ** (attempt - 1)), BACKOFF_CEILING))

@@ -12,11 +12,15 @@ def round_half_up(n: float) -> float:
     return round(n * 2) / 2
 
 
-def build_device_info(device_id: str, name: str, info: dict) -> DeviceInfo:
-    """Construct the device_info dict shared by every platform."""
+def build_device_info(device_id: str, display_name: str, info: dict) -> DeviceInfo:
+    """Construct the device_info dict shared by every platform.
+
+    `display_name` is the full user-facing device name (e.g. "Dock Pro Ramon").
+    Callers typically pass `entry.title`.
+    """
     return DeviceInfo(
         identifiers={(DOMAIN, device_id)},
-        name=f"Dock Pro {name}",
+        name=display_name,
         manufacturer="SleepMe",
         model=info.get("model"),
         sw_version=info.get("firmware_version"),

@@ -33,7 +33,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SleepMe Thermostat from a config entry."""
-    api_url = entry.data.get("api_url") or API_URL
     api_token = entry.data.get("api_token")
     device_id = entry.data.get("device_id")
 
@@ -42,9 +41,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
-    client = SleepMeClient(hass, api_url, api_token, device_id)
+    client = SleepMeClient(hass, API_URL, api_token, device_id)
     coordinator = SleepMeUpdateManager(
-        hass, api_url, api_token, device_id, scan_interval=scan_interval
+        hass, API_URL, api_token, device_id, scan_interval=scan_interval
     )
 
     # First refresh propagates ConfigEntryAuthFailed (-> reauth flow) and
@@ -80,6 +79,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload the entry when its options change."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate old config entries to the current schema.
+
+    v3 -> v4: drop `api_url` (always equals API_URL) and `name` (duplicates
+    the suffix of `entry.title`).
+    """
+    _LOGGER.debug(
+        "Migrating SleepMe entry %s from version %s", entry.entry_id, entry.version
+    )
+
+    if entry.version < 4:
+        new_data = {k: v for k, v in entry.data.items() if k not in ("api_url", "name")}
+        hass.config_entries.async_update_entry(entry, data=new_data, version=4)
+        _LOGGER.info(
+            "Migrated SleepMe entry %s to schema v4 (dropped api_url, name)",
+            entry.entry_id,
+        )
+
+    return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

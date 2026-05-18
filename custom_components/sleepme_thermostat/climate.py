@@ -71,15 +71,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up SleepMe Thermostat climate entity from a config entry."""
     device_id: str = entry.data["device_id"]
-    name: str = entry.data["name"]
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator = entry_data["coordinator"]
-    device_info = build_device_info(device_id, name, entry_data["device_info"])
+    device_info = build_device_info(device_id, entry.title, entry_data["device_info"])
 
     _LOGGER.debug(
-        "[Device %s] Setting up SleepMeThermostat entity with name: %s",
+        "[Device %s] Setting up SleepMeThermostat entity (%s)",
         device_id,
-        name,
+        entry.title,
     )
     async_add_entities(
         [SleepMeThermostat(coordinator, entry_data["client"], device_id, device_info)]

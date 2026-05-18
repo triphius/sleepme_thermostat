@@ -32,15 +32,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up SleepMe Thermostat binary sensors from a config entry."""
     device_id: str = entry.data["device_id"]
-    name: str = entry.data["name"]
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator = entry_data["coordinator"]
-    device_info = build_device_info(device_id, name, entry_data["device_info"])
+    device_info = build_device_info(device_id, entry.title, entry_data["device_info"])
 
     async_add_entities(
         [
-            WaterLevelLowSensor(coordinator, device_id, name, device_info),
-            DeviceConnectedBinarySensor(coordinator, device_id, name, device_info),
+            WaterLevelLowSensor(coordinator, device_id, device_info),
+            DeviceConnectedBinarySensor(coordinator, device_id, device_info),
         ]
     )
 
@@ -56,7 +55,6 @@ class WaterLevelLowSensor(CoordinatorEntity, BinarySensorEntity):
         self,
         coordinator: SleepMeUpdateManager,
         device_id: str,
-        name: str,
         device_info: DeviceInfo,
     ) -> None:
         super().__init__(coordinator)
@@ -82,7 +80,6 @@ class DeviceConnectedBinarySensor(CoordinatorEntity, BinarySensorEntity):
         self,
         coordinator: SleepMeUpdateManager,
         device_id: str,
-        name: str,
         device_info: DeviceInfo,
     ) -> None:
         super().__init__(coordinator)

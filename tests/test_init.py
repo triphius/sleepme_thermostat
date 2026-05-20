@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 from custom_components.sleepme_thermostat.const import API_URL, DOMAIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -286,3 +287,47 @@ async def test_tracker_without_connectivity_history_skips_optional_sensors(
         hass.states.get("sensor.sleepme_tracker_guest_bed_last_disconnected") is None
     )
     assert hass.states.get("sensor.sleepme_tracker_guest_bed_uptime") is None
+
+
+async def test_tracker_entity_names_are_normalized_from_legacy_registry_entries(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """Legacy full-name registry entries should be normalized to clean labels."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry_tracker_legacy_entity_names",
+        version=4,
+        unique_id=MOCK_TRACKER_DEVICE_ID,
+        title=f"SleepMe Tracker - {MOCK_TRACKER_NAME}",
+        data={
+            "api_token": MOCK_API_TOKEN,
+            "device_id": MOCK_TRACKER_DEVICE_ID,
+            "firmware_version": "1.2.20.458",
+            "mac_address": "11:22:33:44:55:66",
+            "model": "ST501NA",
+            "serial_number": "TRACKER-SERIAL",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    registry = er.async_get(hass)
+    created = registry.async_get_or_create(
+        "binary_sensor",
+        DOMAIN,
+        f"{DOMAIN}_{MOCK_TRACKER_DEVICE_ID}_connected",
+        config_entry=entry,
+        has_entity_name=True,
+        original_name="Chilipad Tracker - Guest Bed Connected",
+    )
+    registry.async_update_entity(
+        created.entity_id,
+        name="Chilipad Tracker - Guest Bed Connected",
+    )
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    updated = registry.async_get(created.entity_id)
+    assert updated is not None
+    assert updated.name is None
+    assert updated.original_name == "Connected"

@@ -47,6 +47,7 @@ def mock_sleepme_client() -> Generator[AsyncMock]:
             "ip_address": "192.168.1.100",
             "lan_address": "192.168.1.100",
         },
+        "connectivity": {},
     }
     with (
         patch(

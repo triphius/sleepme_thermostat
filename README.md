@@ -1,4 +1,4 @@
-# SleepMe Dock Pro Integration
+# SleepMe Dock Pro + Tracker Integration
 
 [![HACS Custom Repository](https://img.shields.io/badge/HACS-Custom_Repository-41BDF5.svg)](https://github.com/hacs/default)
 [![Quality Scale](https://img.shields.io/badge/Quality_Scale-silver-c0c0c0.svg)](https://www.home-assistant.io/docs/quality_scale/)
@@ -8,24 +8,26 @@
 [![CodeQL](https://github.com/rsampayo/sleepme_thermostat/actions/workflows/codeql.yml/badge.svg)](https://github.com/rsampayo/sleepme_thermostat/actions/workflows/codeql.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-> A Home Assistant custom integration for the **SleepMe Chilipad Dock Pro** bed-cooling system. Climate entity, water-level alert, connectivity sensor, and five diagnostic sensors — all backed by the [sleep.me developer API](https://docs.developer.sleep.me/api/).
+> A Home Assistant custom integration for **SleepMe Dock Pro and Tracker** devices. Dock Pro climate control, Tracker occupancy sensing, connectivity entities, and diagnostic/environmental sensors — all backed by the [sleep.me developer API](https://docs.developer.sleep.me/api/).
 
 ## Features
 
 - Set bed temperature (13–48°C, half-degree steps, plus `Max Cool` / `Max Heat` presets per API contract).
 - Turn the device on/off via HVAC mode.
+- Sleep Tracker occupancy via `status.user_detected` for “in bed / out of bed” automations.
 - Water-level-low binary sensor for proactive alerts.
-- Connectivity binary sensor.
-- Five diagnostic sensors: IP, LAN, brightness, display unit, time zone.
+- Connectivity binary sensor for both Dock Pro and Tracker devices.
+- Dock Pro sensors: IP, LAN, brightness, display unit, time zone, firmware, water level.
+- Tracker sensors: IP, LAN, firmware, environment humidity, environment temperature, bed temperature, last connected/disconnected, uptime.
 - Configurable polling interval (10–300 s).
 - Reauth flow when the API token rotates — no integration removal needed.
-- Multi-device support: configure multiple Dock Pros under one HA install.
+- Multi-device support: configure multiple Dock Pros and Trackers under one HA install.
 - Long-term statistics for brightness.
 
 ## Requirements
 
 - Home Assistant Core **2026.1** or newer (tested on 2026.1, 2026.3, 2026.5).
-- A sleep.me account with at least one Dock Pro device.
+- A sleep.me account with at least one Dock Pro or Tracker device.
 - A developer API token (generated in the sleep.me account portal, free).
 
 ## Installation
@@ -56,14 +58,23 @@ To tune the polling cadence: *Settings → Devices & Services → SleepMe Thermo
 
 | Platform       | Entity                       | Notes                              |
 |----------------|------------------------------|------------------------------------|
-| climate        | Dock Pro *{name}*            | Target temp, on/off, Max Cool/Heat |
-| binary_sensor  | Water Level                  | Device class: PROBLEM              |
-| binary_sensor  | Connected                    | Device class: CONNECTIVITY         |
-| sensor         | IP Address                   | Diagnostic                         |
-| sensor         | LAN Address                  | Diagnostic                         |
-| sensor         | Brightness Level (%)         | Diagnostic, in long-term statistics |
-| sensor         | Display Temperature Unit     | Diagnostic                         |
-| sensor         | Time Zone                    | Diagnostic                         |
+| climate        | Dock Pro *{name}*            | Dock Pro only; target temp, on/off, Max Cool/Heat |
+| binary_sensor  | Water Level                  | Dock Pro only; device class: PROBLEM |
+| binary_sensor  | Connected                    | Dock Pro + Tracker; device class: CONNECTIVITY |
+| binary_sensor  | Occupied                     | Tracker only; device class: OCCUPANCY |
+| sensor         | IP Address                   | Diagnostic |
+| sensor         | LAN Address                  | Diagnostic |
+| sensor         | Firmware Version             | Diagnostic |
+| sensor         | Brightness Level (%)         | Dock Pro only; diagnostic, in long-term statistics |
+| sensor         | Display Temperature Unit     | Dock Pro only; diagnostic |
+| sensor         | Time Zone                    | Dock Pro only; diagnostic |
+| sensor         | Water Level                  | Dock Pro only; diagnostic |
+| sensor         | Environment Humidity         | Tracker only |
+| sensor         | Environment Temperature      | Tracker only |
+| sensor         | Bed Temperature              | Tracker only |
+| sensor         | Last Connected               | Tracker only; diagnostic |
+| sensor         | Last Disconnected            | Tracker only; diagnostic |
+| sensor         | Uptime                       | Tracker only; diagnostic |
 
 ## Example automation: cool the bed at bedtime
 

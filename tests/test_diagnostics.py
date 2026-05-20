@@ -68,7 +68,12 @@ async def test_diagnostics_structure(
     assert diag["entry"]["options"]["scan_interval"] == 30
     assert diag["coordinator"]["last_update_success"] is True
     assert diag["coordinator"]["update_interval_seconds"] == 30
-    assert set(diag["coordinator"]["data"].keys()) == {"status", "control", "about"}
+    assert set(diag["coordinator"]["data"].keys()) == {
+        "status",
+        "control",
+        "about",
+        "connectivity",
+    }
 
 
 async def test_diagnostics_handles_missing_entry_data(

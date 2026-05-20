@@ -2,6 +2,12 @@ API_URL = "https://api.developer.sleep.me/v1"
 
 DOMAIN = "sleepme_thermostat"
 
+DEVICE_TYPE_DOCK_PRO = "dock_pro"
+DEVICE_TYPE_TRACKER = "tracker"
+
+DOCK_PRO_MODELS = {"Dock Pro", "DP999NA"}
+TRACKER_MODELS = {"Tracker", "Sleep Tracker", "Sleepme Tracker", "ST501NA"}
+
 PRESET_MAX_COOL = "Max Cool"
 PRESET_MAX_HEAT = "Max Heat"
 

@@ -19,6 +19,7 @@ from .const import (
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
 )
+from .helpers import get_device_title_prefix
 from .sleepme import SleepMeClient
 from .sleepme_api import (
     SleepMeAuthError,
@@ -106,8 +107,9 @@ class SleepMeThermostatConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 device_status = await client.get_device_status()
+                model = device_status.get("about", {}).get("model")
                 return self.async_create_entry(
-                    title=f"Dock Pro {name}",
+                    title=f"{get_device_title_prefix(model)} {name}",
                     data={
                         "api_token": self.api_token,
                         "device_id": device_id,

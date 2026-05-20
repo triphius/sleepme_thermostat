@@ -73,4 +73,5 @@ class SleepMeUpdateManager(DataUpdateCoordinator):
             "status": device_status.get("status", {}),
             "control": device_status.get("control", {}),
             "about": device_status.get("about", {}),
+            "connectivity": device_status.get("connectivity", {}),
         }

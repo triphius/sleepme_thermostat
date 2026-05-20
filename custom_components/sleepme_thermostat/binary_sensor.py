@@ -16,7 +16,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DEVICE_TYPE_TRACKER, DOMAIN
-from .helpers import build_device_info, get_device_type
+from .helpers import (
+    build_device_info,
+    get_device_type,
+    normalize_entity_registry_display_name,
+)
 
 if TYPE_CHECKING:
     from .update_manager import SleepMeUpdateManager
@@ -35,9 +39,27 @@ async def async_setup_entry(
     entities: list[BinarySensorEntity] = [
         DeviceConnectedBinarySensor(data.coordinator, device_id, device_info)
     ]
+    normalize_entity_registry_display_name(
+        hass,
+        "binary_sensor",
+        f"{DOMAIN}_{device_id}_connected",
+        "Connected",
+    )
     if get_device_type(entry.data.get("model")) == DEVICE_TYPE_TRACKER:
+        normalize_entity_registry_display_name(
+            hass,
+            "binary_sensor",
+            f"{DOMAIN}_{device_id}_occupied",
+            "Occupied",
+        )
         entities.append(UserDetectedBinarySensor(data.coordinator, device_id, device_info))
     else:
+        normalize_entity_registry_display_name(
+            hass,
+            "binary_sensor",
+            f"{DOMAIN}_{device_id}_water_low",
+            "Water Level",
+        )
         entities.append(WaterLevelLowSensor(data.coordinator, device_id, device_info))
 
     async_add_entities(entities)

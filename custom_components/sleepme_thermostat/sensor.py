@@ -21,7 +21,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import DEVICE_TYPE_TRACKER, DOMAIN
-from .helpers import build_device_info, get_device_type
+from .helpers import (
+    build_device_info,
+    get_device_type,
+    normalize_entity_registry_display_name,
+)
 
 if TYPE_CHECKING:
     from .update_manager import SleepMeUpdateManager
@@ -43,6 +47,18 @@ async def async_setup_entry(
         FirmwareVersionSensor(data.coordinator, device_id, device_info),
     ]
 
+    for suffix, label in (
+        ("ip_address", "IP Address"),
+        ("lan_address", "LAN Address"),
+        ("firmware_version", "Firmware Version"),
+    ):
+        normalize_entity_registry_display_name(
+            hass,
+            "sensor",
+            f"{DOMAIN}_{device_id}_{suffix}",
+            label,
+        )
+
     if get_device_type(entry.data.get("model")) == DEVICE_TYPE_TRACKER:
         connectivity = data.coordinator.data.get("connectivity", {})
         entities.extend(
@@ -52,19 +68,48 @@ async def async_setup_entry(
                 BedTemperatureSensor(data.coordinator, device_id, device_info),
             ]
         )
+        for suffix, label in (
+            ("environment_humidity", "Environment Humidity"),
+            ("environment_temperature", "Environment Temperature"),
+            ("bed_temperature", "Bed Temperature"),
+        ):
+            normalize_entity_registry_display_name(
+                hass,
+                "sensor",
+                f"{DOMAIN}_{device_id}_{suffix}",
+                label,
+            )
         if connectivity.get("last_connected_at") is not None:
+            normalize_entity_registry_display_name(
+                hass,
+                "sensor",
+                f"{DOMAIN}_{device_id}_last_connected_at",
+                "Last Connected",
+            )
             entities.append(
                 LastConnectedAtSensor(data.coordinator, device_id, device_info)
             )
         else:
             _remove_entity(hass, f"{DOMAIN}_{device_id}_last_connected_at")
         if connectivity.get("last_disconnected_at") is not None:
+            normalize_entity_registry_display_name(
+                hass,
+                "sensor",
+                f"{DOMAIN}_{device_id}_last_disconnected_at",
+                "Last Disconnected",
+            )
             entities.append(
                 LastDisconnectedAtSensor(data.coordinator, device_id, device_info)
             )
         else:
             _remove_entity(hass, f"{DOMAIN}_{device_id}_last_disconnected_at")
         if connectivity.get("uptime") is not None:
+            normalize_entity_registry_display_name(
+                hass,
+                "sensor",
+                f"{DOMAIN}_{device_id}_uptime",
+                "Uptime",
+            )
             entities.append(UptimeSensor(data.coordinator, device_id, device_info))
         else:
             _remove_entity(hass, f"{DOMAIN}_{device_id}_uptime")
@@ -86,6 +131,18 @@ async def async_setup_entry(
                 WaterLevelSensor(data.coordinator, device_id, device_info),
             ]
         )
+        for suffix, label in (
+            ("brightness_level", "Brightness Level"),
+            ("display_temperature_unit", "Display Temperature Unit"),
+            ("time_zone", "Time Zone"),
+            ("water_level", "Water Level"),
+        ):
+            normalize_entity_registry_display_name(
+                hass,
+                "sensor",
+                f"{DOMAIN}_{device_id}_{suffix}",
+                label,
+            )
 
     async_add_entities(entities)
 

@@ -1,6 +1,6 @@
 {
   "domain": "sleepme_thermostat",
-  "name": "SleepMe (Chilipad Dock Pro)",
+  "name": "SleepMe",
   "codeowners": ["@rsampayo", "@mikesalz","@derekcentrico"],
   "config_flow": true,
   "dependencies": [],

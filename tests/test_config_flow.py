@@ -70,7 +70,7 @@ async def test_happy_path(hass: HomeAssistant, mock_flow_client: AsyncMock) -> N
         result["flow_id"], {"device_id": MOCK_DEVICE_ID}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == f"Dock Pro {MOCK_NAME}"
+    assert result["title"] == f"Dock Pro - {MOCK_NAME}"
     assert result["data"]["api_token"] == MOCK_API_TOKEN
     assert result["data"]["device_id"] == MOCK_DEVICE_ID
     assert result["data"]["model"] == "Dock Pro"
@@ -103,7 +103,7 @@ async def test_tracker_happy_path(
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == f"Tracker {MOCK_TRACKER_NAME}"
+    assert result["title"] == f"Tracker - {MOCK_TRACKER_NAME}"
     assert result["data"]["model"] == "ST501NA"
 
 
@@ -147,7 +147,7 @@ async def test_reauth_flow(hass: HomeAssistant, mock_flow_client: AsyncMock) -> 
         entry_id="entry_reauth",
         version=3,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro {MOCK_NAME}",
+        title=f"Dock Pro - {MOCK_NAME}",
         data={
             "api_url": API_URL,
             "api_token": "old-token",
@@ -188,7 +188,7 @@ async def test_reauth_token_for_other_account(
         entry_id="entry_other_acct",
         version=3,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro {MOCK_NAME}",
+        title=f"Dock Pro - {MOCK_NAME}",
         data={
             "api_url": API_URL,
             "api_token": "old-token",
@@ -229,7 +229,7 @@ async def test_reauth_invalid_token(
         entry_id="entry_invalid",
         version=3,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro {MOCK_NAME}",
+        title=f"Dock Pro - {MOCK_NAME}",
         data={
             "api_url": API_URL,
             "api_token": "old-token",
@@ -263,7 +263,7 @@ def _entry_with_default_options() -> MockConfigEntry:
         entry_id="entry_opts",
         version=3,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro {MOCK_NAME}",
+        title=f"Dock Pro - {MOCK_NAME}",
         data={
             "api_url": API_URL,
             "api_token": MOCK_API_TOKEN,

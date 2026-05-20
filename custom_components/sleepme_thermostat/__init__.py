@@ -16,6 +16,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
+from .helpers import format_entry_title
 from .sleepme import SleepMeClient
 from .update_manager import SleepMeUpdateManager
 
@@ -54,9 +55,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: SleepMeConfigEntry) -> b
     """Set up SleepMe Thermostat from a config entry."""
     api_token = entry.data.get("api_token")
     device_id = entry.data.get("device_id")
+    model = entry.data.get("model")
 
     if not api_token or not device_id:
         raise ConfigEntryNotReady("API token or device ID missing from entry data")
+
+    _maybe_update_entry_title(hass, entry, model)
 
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
@@ -89,10 +93,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: SleepMeConfigEntry) -> b
         "Entry %s set up for device %s (model=%s, fw=%s)",
         entry.entry_id,
         device_id,
-        entry.data.get("model"),
+        model,
         entry.data.get("firmware_version"),
     )
     return True
+
+
+def _maybe_update_entry_title(
+    hass: HomeAssistant, entry: ConfigEntry, model: str | None
+) -> None:
+    """Normalize legacy entry titles after model-aware support was added."""
+    if model is None:
+        return
+
+    current = entry.title
+    name = current
+
+    for legacy_prefix in ("Dock Pro - ", "Dock Pro ", "Tracker - ", "Tracker "):
+        if name.startswith(legacy_prefix):
+            name = name.removeprefix(legacy_prefix)
+            break
+
+    expected = format_entry_title(model, name)
+    if current != expected:
+        hass.config_entries.async_update_entry(entry, title=expected)
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:

@@ -1,10 +1,10 @@
 {
-  "title": "SleepMe Dock Pro",
+  "title": "SleepMe",
   "config": {
     "step": {
       "user": {
-        "title": "Add SleepMe Dock Pro",
-        "description": "Please enter your API token to proceed.",
+        "title": "Add SleepMe Device",
+        "description": "Please enter your API token to discover your SleepMe devices.",
         "data": {
           "api_token": "API Token"
         },
@@ -13,8 +13,8 @@
         }
       },
       "select_device": {
-        "title": "Select Dock Pro Device",
-        "description": "Select the Dock Pro device you want to add.",
+        "title": "Select SleepMe Device",
+        "description": "Select the SleepMe device you want to add.",
         "data": {
           "device_id": "Bed / Device"
         },
@@ -23,7 +23,7 @@
         }
       },
       "reauth_confirm": {
-        "title": "Re-authenticate SleepMe Dock Pro",
+        "title": "Re-authenticate SleepMe",
         "description": "Your SleepMe API token is no longer valid. Enter a new token to reconnect.",
         "data": {
           "api_token": "API Token"
@@ -48,7 +48,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "SleepMe Dock Pro options",
+        "title": "SleepMe options",
         "description": "Adjust how often Home Assistant polls the SleepMe API for this device. Lower values feel more responsive but consume more of your per-minute API budget.",
         "data": {
           "scan_interval": "Poll interval (seconds)"

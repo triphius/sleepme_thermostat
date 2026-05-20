@@ -45,7 +45,7 @@ def _entry() -> MockConfigEntry:
         entry_id="entry_climate",
         version=3,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro {MOCK_NAME}",
+        title=f"Dock Pro - {MOCK_NAME}",
         data={
             "api_url": API_URL,
             "api_token": MOCK_API_TOKEN,

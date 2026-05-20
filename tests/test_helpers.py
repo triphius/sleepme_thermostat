@@ -26,10 +26,10 @@ def test_build_device_info_shape():
         "serial_number": "SN-1",
     }
     # Phase 5: build_device_info now accepts the full display name verbatim
-    # (callers pass entry.title), so "Dock Pro Ramon" goes in unchanged.
-    out = build_device_info("dev-1", "Dock Pro Ramon", info)
+    # (callers pass entry.title), so "Dock Pro - Ramon" goes in unchanged.
+    out = build_device_info("dev-1", "Dock Pro - Ramon", info)
     assert out["identifiers"] == {(DOMAIN, "dev-1")}
-    assert out["name"] == "Dock Pro Ramon"
+    assert out["name"] == "Dock Pro - Ramon"
     assert out["manufacturer"] == "SleepMe"
     assert out["model"] == "Dock Pro"
     assert out["sw_version"] == "1.2.3"
@@ -44,7 +44,7 @@ def test_build_device_info_shape():
 
 def test_build_device_info_handles_missing_keys():
     """Missing keys flow through as None — HA tolerates this."""
-    out = build_device_info("dev-2", "Dock Pro Chiva", {})
+    out = build_device_info("dev-2", "Dock Pro - Chiva", {})
     assert out["model"] is None
     assert out["sw_version"] is None
     assert out["serial_number"] is None

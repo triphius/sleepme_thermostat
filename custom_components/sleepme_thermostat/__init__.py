@@ -109,7 +109,14 @@ def _maybe_update_entry_title(
     current = entry.title
     name = current
 
-    for legacy_prefix in ("Dock Pro - ", "Dock Pro ", "Tracker - ", "Tracker "):
+    for legacy_prefix in (
+        "SleepMe Dock Pro - ",
+        "SleepMe Tracker - ",
+        "Dock Pro - ",
+        "Dock Pro ",
+        "Tracker - ",
+        "Tracker ",
+    ):
         if name.startswith(legacy_prefix):
             name = name.removeprefix(legacy_prefix)
             break

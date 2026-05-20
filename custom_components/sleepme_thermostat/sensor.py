@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -43,16 +44,39 @@ async def async_setup_entry(
     ]
 
     if get_device_type(entry.data.get("model")) == DEVICE_TYPE_TRACKER:
+        connectivity = data.coordinator.data.get("connectivity", {})
         entities.extend(
             [
                 EnvironmentHumiditySensor(data.coordinator, device_id, device_info),
                 EnvironmentTemperatureSensor(data.coordinator, device_id, device_info),
                 BedTemperatureSensor(data.coordinator, device_id, device_info),
-                LastConnectedAtSensor(data.coordinator, device_id, device_info),
-                LastDisconnectedAtSensor(data.coordinator, device_id, device_info),
-                UptimeSensor(data.coordinator, device_id, device_info),
             ]
         )
+        if connectivity.get("last_connected_at") is not None:
+            entities.append(
+                LastConnectedAtSensor(data.coordinator, device_id, device_info)
+            )
+        else:
+            _remove_entity(hass, f"{DOMAIN}_{device_id}_last_connected_at")
+        if connectivity.get("last_disconnected_at") is not None:
+            entities.append(
+                LastDisconnectedAtSensor(data.coordinator, device_id, device_info)
+            )
+        else:
+            _remove_entity(hass, f"{DOMAIN}_{device_id}_last_disconnected_at")
+        if connectivity.get("uptime") is not None:
+            entities.append(UptimeSensor(data.coordinator, device_id, device_info))
+        else:
+            _remove_entity(hass, f"{DOMAIN}_{device_id}_uptime")
+
+        # Remove stale Dock Pro-only tracker entities left over from earlier builds.
+        for suffix in (
+            "brightness_level",
+            "display_temperature_unit",
+            "time_zone",
+            "water_level",
+        ):
+            _remove_entity(hass, f"{DOMAIN}_{device_id}_{suffix}")
     else:
         entities.extend(
             [
@@ -64,6 +88,13 @@ async def async_setup_entry(
         )
 
     async_add_entities(entities)
+
+
+def _remove_entity(hass: HomeAssistant, unique_id: str) -> None:
+    """Remove a stale entity registry entry by unique_id if it exists."""
+    registry = er.async_get(hass)
+    if entity_id := registry.async_get_entity_id("sensor", DOMAIN, unique_id):
+        registry.async_remove(entity_id)
 
 
 class _SleepMeSensor(CoordinatorEntity, SensorEntity):

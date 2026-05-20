@@ -20,7 +20,7 @@ def _make_v4_entry() -> MockConfigEntry:
         entry_id="entry_diag",
         version=4,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro - {MOCK_NAME}",
+        title=f"SleepMe Dock Pro - {MOCK_NAME}",
         data={
             "api_token": MOCK_API_TOKEN,
             "device_id": MOCK_DEVICE_ID,
@@ -64,7 +64,7 @@ async def test_diagnostics_structure(
 
     assert set(diag.keys()) == {"entry", "device_info", "coordinator"}
     assert diag["entry"]["version"] == 4
-    assert diag["entry"]["title"] == f"Dock Pro - {MOCK_NAME}"
+    assert diag["entry"]["title"] == f"SleepMe Dock Pro - {MOCK_NAME}"
     assert diag["entry"]["options"]["scan_interval"] == 30
     assert diag["coordinator"]["last_update_success"] is True
     assert diag["coordinator"]["update_interval_seconds"] == 30

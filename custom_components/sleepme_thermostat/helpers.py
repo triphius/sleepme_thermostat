@@ -46,7 +46,11 @@ def get_device_type(model: str | None) -> str:
 
 def get_device_title_prefix(model: str | None) -> str:
     """Return the user-facing device title prefix."""
-    return "Tracker" if get_device_type(model) == DEVICE_TYPE_TRACKER else "Dock Pro"
+    return (
+        "SleepMe Tracker"
+        if get_device_type(model) == DEVICE_TYPE_TRACKER
+        else "SleepMe Dock Pro"
+    )
 
 
 def format_entry_title(model: str | None, name: str) -> str:

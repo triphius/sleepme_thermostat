@@ -30,7 +30,7 @@ def _make_entry(
         entry_id=entry_id,
         version=3,
         unique_id=device_id,
-        title=f"Dock Pro - {title_suffix}",
+        title=f"SleepMe Dock Pro - {title_suffix}",
         data={
             "api_url": API_URL,
             "api_token": MOCK_API_TOKEN,
@@ -118,7 +118,7 @@ async def test_migrate_entry_v3_to_v4(
         entry_id="entry_v3",
         version=3,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro - {MOCK_NAME}",
+        title=f"SleepMe Dock Pro - {MOCK_NAME}",
         data={
             "api_url": API_URL,
             "api_token": MOCK_API_TOKEN,
@@ -142,7 +142,7 @@ async def test_migrate_entry_v3_to_v4(
     # Other keys survive untouched.
     assert entry.data["device_id"] == MOCK_DEVICE_ID
     assert entry.data["api_token"] == MOCK_API_TOKEN
-    assert entry.title == f"Dock Pro - {MOCK_NAME}"
+    assert entry.title == f"SleepMe Dock Pro - {MOCK_NAME}"
 
 
 async def test_tracker_entry_skips_climate_and_creates_tracker_entities(
@@ -179,7 +179,7 @@ async def test_tracker_entry_skips_climate_and_creates_tracker_entities(
         entry_id="entry_tracker",
         version=4,
         unique_id=MOCK_TRACKER_DEVICE_ID,
-        title=f"Tracker - {MOCK_TRACKER_NAME}",
+        title=f"SleepMe Tracker - {MOCK_TRACKER_NAME}",
         data={
             "api_token": MOCK_API_TOKEN,
             "device_id": MOCK_TRACKER_DEVICE_ID,
@@ -199,10 +199,14 @@ async def test_tracker_entry_skips_climate_and_creates_tracker_entities(
     await hass.async_block_till_done()
 
     assert entry.state is ConfigEntryState.LOADED
-    assert hass.states.get("climate.tracker_guest_bed") is None
-    assert hass.states.get("binary_sensor.tracker_guest_bed_occupied").state == "on"
+    assert hass.states.get("climate.sleepme_tracker_guest_bed") is None
     assert (
-        hass.states.get("sensor.tracker_guest_bed_environment_humidity").state == "41.5"
+        hass.states.get("binary_sensor.sleepme_tracker_guest_bed_occupied").state
+        == "on"
+    )
+    assert (
+        hass.states.get("sensor.sleepme_tracker_guest_bed_environment_humidity").state
+        == "41.5"
     )
 
 
@@ -230,4 +234,55 @@ async def test_tracker_entry_title_is_normalized_on_setup(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.title == "Tracker - Ben's Tracker"
+    assert entry.title == "SleepMe Tracker - Ben's Tracker"
+
+
+async def test_tracker_without_connectivity_history_skips_optional_sensors(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """Trackers with empty connectivity metadata should not create unknown-only sensors."""
+    tracker_status = {
+        "status": {
+            "user_detected": False,
+            "environment_humidity": 33.7,
+            "environment_temperature_c": 31.1,
+            "bed_temperature_c": 22.2,
+        },
+        "control": {},
+        "about": {
+            "firmware_version": "1.2.20.458",
+            "mac_address": "11:22:33:44:55:66",
+            "model": "ST501NA",
+            "serial_number": "TRACKER-SERIAL",
+            "ip_address": "192.168.1.101",
+            "lan_address": "192.168.1.101",
+        },
+        "connectivity": {},
+    }
+    mock_sleepme_client.get_device_status.return_value = tracker_status
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry_tracker_no_conn_history",
+        version=4,
+        unique_id=MOCK_TRACKER_DEVICE_ID,
+        title=f"SleepMe Tracker - {MOCK_TRACKER_NAME}",
+        data={
+            "api_token": MOCK_API_TOKEN,
+            "device_id": MOCK_TRACKER_DEVICE_ID,
+            "firmware_version": "1.2.20.458",
+            "mac_address": "11:22:33:44:55:66",
+            "model": "ST501NA",
+            "serial_number": "TRACKER-SERIAL",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.sleepme_tracker_guest_bed_last_connected") is None
+    assert (
+        hass.states.get("sensor.sleepme_tracker_guest_bed_last_disconnected") is None
+    )
+    assert hass.states.get("sensor.sleepme_tracker_guest_bed_uptime") is None

@@ -36,7 +36,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from tests.const import MOCK_API_TOKEN, MOCK_DEVICE_ID, MOCK_NAME
 
-ENTITY_ID = f"climate.dock_pro_{MOCK_NAME.lower().replace(' ', '_')}"
+ENTITY_ID = f"climate.sleepme_dock_pro_{MOCK_NAME.lower().replace(' ', '_')}"
 
 
 def _entry() -> MockConfigEntry:
@@ -45,7 +45,7 @@ def _entry() -> MockConfigEntry:
         entry_id="entry_climate",
         version=3,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro - {MOCK_NAME}",
+        title=f"SleepMe Dock Pro - {MOCK_NAME}",
         data={
             "api_url": API_URL,
             "api_token": MOCK_API_TOKEN,

@@ -37,6 +37,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    DEVICE_TYPE_DOCK_PRO,
     DOMAIN,
     MAX_TEMP_C,
     MIN_TEMP_C,
@@ -44,7 +45,7 @@ from .const import (
     PRESET_MAX_HEAT,
     PRESET_TEMPERATURES,
 )
-from .helpers import build_device_info, round_half_up
+from .helpers import build_device_info, get_device_type, round_half_up
 from .sleepme_api import (
     SleepMeAPIError,
     SleepMeAuthError,
@@ -79,6 +80,9 @@ async def async_setup_entry(
         device_id,
         entry.title,
     )
+    if get_device_type(entry.data.get("model")) != DEVICE_TYPE_DOCK_PRO:
+        return
+
     async_add_entities(
         [SleepMeThermostat(data.coordinator, data.client, device_id, device_info)]
     )

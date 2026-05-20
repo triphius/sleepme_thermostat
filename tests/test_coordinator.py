@@ -146,7 +146,7 @@ async def test_async_update_data_happy_path(
 
     coord = entry.runtime_data.coordinator
     assert coord.last_update_success is True
-    assert set(coord.data.keys()) == {"status", "control", "about"}
+    assert set(coord.data.keys()) == {"status", "control", "about", "connectivity"}
     assert coord.data["status"]["water_temperature_c"] == 22.0
 
 

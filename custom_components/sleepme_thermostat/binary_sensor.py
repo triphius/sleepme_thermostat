@@ -1,4 +1,4 @@
-"""Binary sensors for SleepMe Dock Pro: water-level-low + connected."""
+"""Binary sensors for SleepMe Dock Pro and Tracker devices."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .helpers import build_device_info
+from .const import DEVICE_TYPE_TRACKER, DOMAIN
+from .helpers import build_device_info, get_device_type
 
 if TYPE_CHECKING:
     from .update_manager import SleepMeUpdateManager
@@ -27,24 +27,46 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up SleepMe Thermostat binary sensors from a config entry."""
+    """Set up SleepMe binary sensors from a config entry."""
     device_id: str = entry.data["device_id"]
     data = entry.runtime_data
     device_info = build_device_info(device_id, entry.title, data.device_info)
 
-    async_add_entities(
-        [
-            WaterLevelLowSensor(data.coordinator, device_id, device_info),
-            DeviceConnectedBinarySensor(data.coordinator, device_id, device_info),
-        ]
-    )
+    entities: list[BinarySensorEntity] = [
+        DeviceConnectedBinarySensor(data.coordinator, device_id, device_info)
+    ]
+    if get_device_type(entry.data.get("model")) == DEVICE_TYPE_TRACKER:
+        entities.append(UserDetectedBinarySensor(data.coordinator, device_id, device_info))
+    else:
+        entities.append(WaterLevelLowSensor(data.coordinator, device_id, device_info))
+
+    async_add_entities(entities)
 
 
-class WaterLevelLowSensor(CoordinatorEntity, BinarySensorEntity):
-    """Binary sensor: water level low."""
+class _SleepMeBinarySensor(CoordinatorEntity, BinarySensorEntity):
+    """Common base for coordinator-backed binary sensors."""
 
     _attr_has_entity_name = True
-    _attr_name = "Water Level"
+
+    def __init__(
+        self,
+        coordinator: SleepMeUpdateManager,
+        device_id: str,
+        device_info: DeviceInfo,
+        *,
+        suffix: str,
+        label: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._device_id = device_id
+        self._attr_unique_id = f"{DOMAIN}_{device_id}_{suffix}"
+        self._attr_name = label
+        self._attr_device_info = device_info
+
+
+class WaterLevelLowSensor(_SleepMeBinarySensor):
+    """Binary sensor: water level low."""
+
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
 
     def __init__(
@@ -53,10 +75,13 @@ class WaterLevelLowSensor(CoordinatorEntity, BinarySensorEntity):
         device_id: str,
         device_info: DeviceInfo,
     ) -> None:
-        super().__init__(coordinator)
-        self._device_id = device_id
-        self._attr_unique_id = f"{DOMAIN}_{device_id}_water_low"
-        self._attr_device_info = device_info
+        super().__init__(
+            coordinator,
+            device_id,
+            device_info,
+            suffix="water_low",
+            label="Water Level",
+        )
 
     @property
     def is_on(self) -> bool | None:
@@ -64,11 +89,9 @@ class WaterLevelLowSensor(CoordinatorEntity, BinarySensorEntity):
         return self.coordinator.data["status"].get("is_water_low")
 
 
-class DeviceConnectedBinarySensor(CoordinatorEntity, BinarySensorEntity):
+class DeviceConnectedBinarySensor(_SleepMeBinarySensor):
     """Binary sensor: device connectivity."""
 
-    _attr_has_entity_name = True
-    _attr_name = "Connected"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -78,12 +101,43 @@ class DeviceConnectedBinarySensor(CoordinatorEntity, BinarySensorEntity):
         device_id: str,
         device_info: DeviceInfo,
     ) -> None:
-        super().__init__(coordinator)
-        self._device_id = device_id
-        self._attr_unique_id = f"{DOMAIN}_{device_id}_connected"
-        self._attr_device_info = device_info
+        super().__init__(
+            coordinator,
+            device_id,
+            device_info,
+            suffix="connected",
+            label="Connected",
+        )
 
     @property
     def is_on(self) -> bool | None:
         """Return true if the device is connected."""
-        return self.coordinator.data["status"].get("is_connected")
+        return self.coordinator.data["connectivity"].get(
+            "is_connected",
+            self.coordinator.data["status"].get("is_connected"),
+        )
+
+
+class UserDetectedBinarySensor(_SleepMeBinarySensor):
+    """Binary sensor: tracker occupancy / user detection."""
+
+    _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
+
+    def __init__(
+        self,
+        coordinator: SleepMeUpdateManager,
+        device_id: str,
+        device_info: DeviceInfo,
+    ) -> None:
+        super().__init__(
+            coordinator,
+            device_id,
+            device_info,
+            suffix="occupied",
+            label="Occupied",
+        )
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the tracker detects a user in bed."""
+        return self.coordinator.data["status"].get("user_detected")

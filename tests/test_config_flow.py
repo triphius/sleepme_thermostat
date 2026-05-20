@@ -19,7 +19,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from tests.const import MOCK_API_TOKEN, MOCK_DEVICE_ID, MOCK_NAME
+from tests.const import (
+    MOCK_API_TOKEN,
+    MOCK_DEVICE_ID,
+    MOCK_NAME,
+    MOCK_TRACKER_DEVICE_ID,
+    MOCK_TRACKER_NAME,
+)
 
 
 @pytest.fixture
@@ -68,6 +74,37 @@ async def test_happy_path(hass: HomeAssistant, mock_flow_client: AsyncMock) -> N
     assert result["data"]["api_token"] == MOCK_API_TOKEN
     assert result["data"]["device_id"] == MOCK_DEVICE_ID
     assert result["data"]["model"] == "Dock Pro"
+
+
+async def test_tracker_happy_path(
+    hass: HomeAssistant, mock_flow_client: AsyncMock
+) -> None:
+    """Tracker devices get a tracker-specific title."""
+    mock_flow_client.get_claimed_devices.return_value = [
+        {"id": MOCK_TRACKER_DEVICE_ID, "name": MOCK_TRACKER_NAME}
+    ]
+    mock_flow_client.get_device_status.return_value = {
+        "about": {
+            "firmware_version": "2.0",
+            "mac_address": "11:22:33:44:55:66",
+            "model": "ST501NA",
+            "serial_number": "TRK-1",
+        }
+    }
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"api_token": MOCK_API_TOKEN}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"device_id": MOCK_TRACKER_DEVICE_ID}
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == f"Tracker {MOCK_TRACKER_NAME}"
+    assert result["data"]["model"] == "ST501NA"
 
 
 async def test_user_step_invalid_token(

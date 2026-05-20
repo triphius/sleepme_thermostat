@@ -21,7 +21,7 @@ def round_half_up(n: float) -> float:
 def build_device_info(device_id: str, display_name: str, info: dict) -> DeviceInfo:
     """Construct the device_info dict shared by every platform.
 
-    `display_name` is the full user-facing device name (e.g. "Dock Pro Ramon").
+    `display_name` is the full user-facing device name (e.g. "Dock Pro - Ramon").
     Callers typically pass `entry.title`.
     """
     return DeviceInfo(
@@ -47,3 +47,8 @@ def get_device_type(model: str | None) -> str:
 def get_device_title_prefix(model: str | None) -> str:
     """Return the user-facing device title prefix."""
     return "Tracker" if get_device_type(model) == DEVICE_TYPE_TRACKER else "Dock Pro"
+
+
+def format_entry_title(model: str | None, name: str) -> str:
+    """Return the config-entry title for the device."""
+    return f"{get_device_title_prefix(model)} - {name}"

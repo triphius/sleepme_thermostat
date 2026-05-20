@@ -30,7 +30,7 @@ def _make_entry(
         entry_id=entry_id,
         version=3,
         unique_id=device_id,
-        title=f"Dock Pro {title_suffix}",
+        title=f"Dock Pro - {title_suffix}",
         data={
             "api_url": API_URL,
             "api_token": MOCK_API_TOKEN,
@@ -118,7 +118,7 @@ async def test_migrate_entry_v3_to_v4(
         entry_id="entry_v3",
         version=3,
         unique_id=MOCK_DEVICE_ID,
-        title=f"Dock Pro {MOCK_NAME}",
+        title=f"Dock Pro - {MOCK_NAME}",
         data={
             "api_url": API_URL,
             "api_token": MOCK_API_TOKEN,
@@ -142,7 +142,7 @@ async def test_migrate_entry_v3_to_v4(
     # Other keys survive untouched.
     assert entry.data["device_id"] == MOCK_DEVICE_ID
     assert entry.data["api_token"] == MOCK_API_TOKEN
-    assert entry.title == f"Dock Pro {MOCK_NAME}"
+    assert entry.title == f"Dock Pro - {MOCK_NAME}"
 
 
 async def test_tracker_entry_skips_climate_and_creates_tracker_entities(
@@ -179,7 +179,7 @@ async def test_tracker_entry_skips_climate_and_creates_tracker_entities(
         entry_id="entry_tracker",
         version=4,
         unique_id=MOCK_TRACKER_DEVICE_ID,
-        title=f"Tracker {MOCK_TRACKER_NAME}",
+        title=f"Tracker - {MOCK_TRACKER_NAME}",
         data={
             "api_token": MOCK_API_TOKEN,
             "device_id": MOCK_TRACKER_DEVICE_ID,
@@ -204,3 +204,30 @@ async def test_tracker_entry_skips_climate_and_creates_tracker_entities(
     assert (
         hass.states.get("sensor.tracker_guest_bed_environment_humidity").state == "41.5"
     )
+
+
+async def test_tracker_entry_title_is_normalized_on_setup(
+    hass: HomeAssistant, mock_sleepme_client: AsyncMock
+) -> None:
+    """Legacy tracker entries should stop showing a Dock Pro prefix."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry_tracker_legacy_title",
+        version=4,
+        unique_id=MOCK_TRACKER_DEVICE_ID,
+        title="Dock Pro Ben's Tracker",
+        data={
+            "api_token": MOCK_API_TOKEN,
+            "device_id": MOCK_TRACKER_DEVICE_ID,
+            "firmware_version": "2.0.0",
+            "mac_address": "11:22:33:44:55:66",
+            "model": "ST501NA",
+            "serial_number": "TRACKER-SERIAL",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.title == "Tracker - Ben's Tracker"
